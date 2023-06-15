@@ -1,3 +1,25 @@
 # Swin Transformer with Depth Estimation
 This repository contains an implementation of the Swin Transformer architecture enhanced with depth estimation for image super-resolution. The Swin Transformer has emerged as a powerful model for various computer vision tasks, and by incorporating depth estimation, we aim to further improve the quality and visual fidelity of super-resolved images.
 
+## Approach
+The Swin Transformer with Depth Estimation approach combines the strength of the Swin Transformer architecture with depth estimation techniques to achieve high-resolution image generation. The Swin Transformer leverages self-attention mechanisms and hierarchical feature representation to capture global and local image information effectively. By incorporating depth estimation, the model gains additional understanding of the scene's spatial layout and 3D structure, leading to more accurate and visually appealing super-resolution results.
+
+## Results
+Our approach has been extensively evaluated on benchmark dataset: [HRWSI (High-Resolution Web Stereo Image)](https://paperswithcode.com/dataset/hrwsi).
+
+## How to Run Inference
+To run inference using the Swin Transformer with Depth Estimation approach, please follow the steps below:
+1. **Prerequisites:** Ensure that you have the following dependencies installed:
+##TODO
+2. **Clone the Repository:** Clone this repository to your local machine using the following command:
+```
+git clone https://github.com/RazinAleksandr/ISR_With_Depth_Estimation.git
+```
+3. **Download Pretrained Model:** Download the pretrained Swin Transformer with Depth Estimation model weights from [link-to-model](https://drive.google.com/drive/folders/1LkMTDYI61H0EXOHbz2tHxRcafKUb7QZX?usp=sharing) and place them in the appropriate directory (model_zoo).
+4. **Prepare Input Data:** Move data from [datasets directory](https://github.com/RazinAleksandr/ISR_With_Depth_Estimation/tree/main/datasets) into [SwinIR_with_depth directory](https://github.com/RazinAleksandr/ISR_With_Depth_Estimation/tree/main/SwinIR_with_depth) or put absolute path in the [config file](https://github.com/RazinAleksandr/ISR_With_Depth_Estimation/blob/main/SwinIR_with_depth/configurations/swinir_sr_classical.json).
+5. **Run Inference:** Execute the following command to perform inference on your input data. This command will process the images in the *datasets/inference* directory and save the super-resolved images in the *superresolution* directory:
+```
+python main_inference.py --opt configurations/swinir_sr_classical.json
+```
+6. **Enjoy the Results:** After the inference process is complete, you can find the high-resolution images in the *superresolution/swinir_sr_classical_patch48_x2/inferenced_images* directory. Feel free to explore and evaluate the quality of the super-resolved images.
+
