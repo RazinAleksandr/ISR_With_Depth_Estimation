@@ -1,4 +1,6 @@
 import mlflow
+import wandb
+
 import torchvision.utils as vutils
 import os
 
@@ -18,7 +20,7 @@ def str_to_class(exp_config, CLASS_MAPPING):
     return exp_config
 
 
-def save_and_log_images(decoded_samples, epoch, logdir, mlflow_log=False):
+def save_and_log_images(decoded_samples, epoch, logdir, log=False):
     for idx, image in enumerate(decoded_samples):
         # Save the image to a file
         file_name = f"reconstructed_epoch_{epoch}_sample_{idx}.png"
@@ -26,5 +28,7 @@ def save_and_log_images(decoded_samples, epoch, logdir, mlflow_log=False):
         vutils.save_image(image, file_path)
 
         # Log the file to MLflow
-        if mlflow_log:
+        if log == "mlflow":
             mlflow.log_artifact(file_path)
+        elif log == "wandb":
+            wandb.log({"reconstructed_images": [wandb.Image(image, caption=file_name)]})

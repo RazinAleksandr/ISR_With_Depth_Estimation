@@ -2,12 +2,13 @@ import click
 import yaml
 
 import mlflow
+import wandb
 
 # Importing necessary modules and functions
-from src.utils.helpers import str_to_class, save_and_log_images
+from src.utils.helpers import str_to_class
 from src.constants.classes import CLASS_MAPPING
 from src.models.train_initialization import initialize_parameters, initialize_datasets_and_dataloaders, initialize_model_and_optimizer
-from src.models.train_utils import fit, test
+from src.models.train_utils import fit
 
 
 @click.command()
@@ -33,17 +34,24 @@ def main(config_path):
     n_epochs = initial_params['n_epochs']
     exp_name = exp_config['logging']['experiment_name']
     logdir = exp_config['logging']['logdir']
-    mlflow_log = exp_config['logging']['mlflow_log']
+    log = exp_config['logging']['log']
+    val_step = initial_params['val_step']
     
 
     # logging
-    # mlflow.start_run(experiment_id=exp_name)
-    mlflow.start_run()
+    if log == "mlflow":
+        # mlflow.start_run(experiment_id=exp_name)
+        mlflow.start_run()
+        mlflow.log_params(initial_params) # subst. to exp_config
+    elif log == "wandb":
+        # Initialize wandb
+        wandb.init(project="ldm_conditioned", name=exp_name)  # Replace "your_project_name" with your W&B project name
+        wandb.config.update(exp_config)  # Log the experiment configuration to W&B
+        wandb.watch([unet, vae], log="all")  # Log model gradients and parameters
 
-    mlflow.log_params(initial_params) # subst. to exp_config
 
     # run train/val loop
-    train_losses, val_losses = fit(
+    train_loss_history, val_loss_history = fit(
         n_epochs, 
         device, 
         num_train_timesteps, 
@@ -52,26 +60,21 @@ def main(config_path):
         train_image_dataloader, 
         train_cond_dataloader, 
         val_image_dataloader, 
-        val_cond_dataloader, 
+        val_cond_dataloader,
+        test_image_dataloader, 
+        test_cond_dataloader, 
         opt,
         noise_scheduler,
         loss_fn,
-        mlflow_log
+        logdir,
+        log,
+        val_step
         )
-    
-    # run test reconstruction
-    test_prediction = test(
-        unet, 
-        vae, 
-        test_image_dataloader, 
-        test_cond_dataloader, 
-        device, 
-        num_train_timesteps, 
-        noise_scheduler
-        )
-    
-    save_and_log_images(test_prediction, n_epochs, logdir, mlflow_log)
 
+    if log == "mlflow":
+        mlflow.finish()
+    elif log == "wandb":
+        wandb.finish()
 
 if __name__ == "__main__":
     main()

@@ -1,43 +1,43 @@
 import mlflow
+import wandb
+
 import torch
 from tqdm import tqdm
 
+from src.utils.helpers import save_and_log_images
 
-def train_one_epoch(unet, vae, image_dataloader, cond_dataloader, opt, device, num_train_timesteps, noise_scheduler, loss_fn, pbar):
-    unet.train()
-
-    losses = []
-    images = next(iter(image_dataloader))
-    degradations, depths = next(iter(cond_dataloader))
-    for images, (degradations, depths) in tqdm(zip(image_dataloader, cond_dataloader)):
-        images = images.to(device) * 2 - 1
-        degradations = degradations.to(device)
-        depths = depths.to(device)
+def train_one_batch(unet, vae, images, degradations, depths, opt, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log=None):
+    images = images.to(device) * 2 - 1
+    degradations = degradations.to(device)
+    depths = depths.to(device)
         
-        with torch.no_grad():
-            latents = 0.18215 * vae.encode(images).latents
+    with torch.no_grad():
+        latents = 0.18215 * vae.encode(images).latents
 
-        noise = torch.randn_like(latents)
-        timesteps = torch.randint(0, num_train_timesteps-1, (latents.shape[0],)).long().to(device)
-        noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+    noise = torch.randn_like(latents)
+    timesteps = torch.randint(0, num_train_timesteps-1, (latents.shape[0],)).long().to(device)
+    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
         
-        pred = unet(noisy_latents, timesteps, depths, degradations)
-        loss = loss_fn(pred, noise)
+    pred = unet(noisy_latents, timesteps, depths, degradations)
+    loss = loss_fn(pred, noise)
 
-        opt.zero_grad()
-        loss.backward()
-        opt.step()
+    opt.zero_grad()
+    loss.backward()
+    opt.step()
 
-        losses.append(loss.item())
-
-        pbar.update(1)
-
-    return sum(losses) / len(losses)
-
-def validate_one_epoch(unet, vae, image_dataloader, cond_dataloader, device, num_train_timesteps, noise_scheduler, loss_fn, pbar):
-    unet.eval()  # Set the model to evaluation mode
+    if log == "mlflow":
+        mlflow.log_metric("train_iteration_loss", loss.item(), step=epoch)
+    elif log == "wandb":
+        wandb.log({"train_iteration_loss": loss.item(), "epoch": epoch})
     
+    return loss.item()
+
+def validate(unet, vae, image_dataloader, cond_dataloader, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log=None):
+    unet.eval()  # Set the model to evaluation mode
+
     losses = []
+    total_iterations = len(image_dataloader)
+    pbar = tqdm(total=total_iterations, desc=f"Epoch {epoch}. Validation loop")
     with torch.no_grad():
         for images, (degradations, depths) in tqdm(zip(image_dataloader, cond_dataloader)):
             images = images.to(device) * 2 - 1
@@ -52,13 +52,15 @@ def validate_one_epoch(unet, vae, image_dataloader, cond_dataloader, device, num
             
             pred = unet(noisy_latents, timesteps, depths, degradations)
             loss = loss_fn(pred, noise)
-
-            losses.append(loss.item())
             
+            losses.append(loss.item())
+
             pbar.set_description(f"Validation Loss: {loss.item():.4f}")
             pbar.update(1)
-    
+    pbar.close()
+
     return sum(losses) / len(losses)
+
     
 # Training and validation loop
 def fit(n_epochs, 
@@ -69,36 +71,61 @@ def fit(n_epochs,
         train_image_dataloader, 
         train_cond_dataloader, 
         val_image_dataloader, 
-        val_cond_dataloader, 
+        val_cond_dataloader,
+        test_image_dataloader,
+        test_cond_dataloader,
         opt,
         noise_scheduler,
         loss_fn,
-        mlflow_log=False):
-    
-    train_losses = []
-    val_losses = []
+        logdir,
+        log=None,
+        val_step=400):
+
+    train_loss_history, val_loss_history = [], []
+
     total_iterations = len(train_image_dataloader) + len(val_image_dataloader)
-    
-    for epoch in range(1, n_epochs+1):    
+    iteration = 0  # Initialize iteration counter
+    for epoch in range(1, n_epochs+1):
+
+        epoch_train_losses, epoch_val_losses = [], []
         pbar = tqdm(total=total_iterations, desc=f"Epoch {epoch}/{n_epochs}")
+        for images, (degradations, depths) in tqdm(zip(train_image_dataloader, train_cond_dataloader)):
+            # Training
+            unet.train()
+            train_loss = train_one_batch(unet, vae, images, degradations, depths, opt, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log)
+            
+            iteration += 1  # Increment iteration counter
+            
+            # Check if it's time for validation
+            if iteration % val_step == 0:
+                val_loss = validate(unet, vae, val_image_dataloader, val_cond_dataloader, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log)
+                
+                if log == "mlflow":
+                    mlflow.log_metric("val_loss", val_loss, step=epoch)
+                elif log == "wandb":
+                    wandb.log({"val_loss": val_loss, "epoch": epoch})
+                
+                epoch_val_losses.append(val_loss)
 
-        # Training
-        train_loss = train_one_epoch(unet, vae, train_image_dataloader, train_cond_dataloader, opt, device, num_train_timesteps, noise_scheduler, loss_fn, pbar)
-        train_losses.append(train_loss)
+            epoch_train_losses.append(train_loss)
 
-        # Validation
-        val_loss = validate_one_epoch(unet, vae, val_image_dataloader, val_cond_dataloader, device, num_train_timesteps, noise_scheduler, loss_fn, pbar)
-        val_losses.append(val_loss)
+        # Test and save images after each epoch
+        test_prediction = test(unet, vae, test_image_dataloader, test_cond_dataloader, device, num_train_timesteps, noise_scheduler)
+        save_and_log_images(test_prediction, epoch, logdir, log)
 
-        if mlflow_log:
-            mlflow.log_metric("train_loss", train_loss, step=epoch)
-            mlflow.log_metric("val_loss", val_loss, step=epoch)
 
         pbar.close()
-        print(f"Epoch {epoch}/{n_epochs} => Train Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}")
-        print(' ')
 
-    return train_losses, val_losses
+        epoch_train_losses = sum(epoch_train_losses) / len(epoch_train_losses)
+        epoch_val_losses = sum(epoch_val_losses) / len(epoch_val_losses)
+
+        train_loss_history.append(epoch_train_losses)
+        val_loss_history.append(epoch_val_losses)
+
+        print(f"Epoch {epoch}/{n_epochs} => Train Loss: {epoch_train_losses:.4f}, Validation Loss: {epoch_val_losses:.4f}")
+        print(' ')
+    
+    return train_loss_history, val_loss_history
 
 
 def test(unet, vae, image_dataloader, cond_dataloader, device, num_train_timesteps, noise_scheduler):

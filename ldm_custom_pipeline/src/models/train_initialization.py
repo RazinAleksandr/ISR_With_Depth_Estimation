@@ -10,10 +10,11 @@ from src.utils.degradations import BSRDegradation
 from models.SuperResDepthConditionedUnet import SuperResDepthConditionedUnet
 
 
-def initialize_parameters(latent_size=32, n_epochs=10):
+def initialize_parameters(latent_size=32, n_epochs=10, val_step=100):
     config = {
         'latent_size': latent_size,
         'n_epochs': n_epochs,
+        'val_step': val_step
     }
     return config
 
@@ -53,7 +54,7 @@ def initialize_model_and_optimizer(device='cpu',
     
     # init vae  
     sr_pipe = pretrain_pipeline.from_pretrained(pretrain_model_id)
-    vae = vae = sr_pipe.vqvae
+    vae = sr_pipe.vqvae.to(device)
     # init cond unet
     unet = SuperResDepthConditionedUnet(**unet_model_params).to(device)
     # Create a scheduler

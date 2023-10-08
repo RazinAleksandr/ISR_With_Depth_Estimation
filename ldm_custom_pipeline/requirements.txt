@@ -66,7 +66,7 @@ jupyterlab-pygments==0.2.2
 jupyterlab-widgets==3.0.9
 jupyterlab_server==2.25.0
 kiwisolver==1.4.5
--e git+ssh://git@github.com/RazinAleksandr/ISR_With_Depth_Estimation.git@eb7667664715748d40b5fdaabf68338a2b50afc6#egg=LDM_depth_conditioned&subdirectory=ldm_custom_pipeline
+# -e git+ssh://git@github.com/RazinAleksandr/ISR_With_Depth_Estimation.git@eb7667664715748d40b5fdaabf68338a2b50afc6#egg=LDM_depth_conditioned&subdirectory=ldm_custom_pipeline
 Mako==1.2.4
 Markdown==3.5
 MarkupSafe==2.1.3
@@ -74,6 +74,12 @@ matplotlib==3.8.0
 matplotlib-inline==0.1.6
 mistune==3.0.2
 mlflow==2.7.1
+appdirs==1.4.4
+docker-pycreds==0.4.0
+pathtools==0.1.2
+sentry-sdk==1.31.0
+setproctitle==1.3.3
+wandb==0.15.12
 mpmath==1.3.0
 nbclient==0.8.0
 nbconvert==7.9.2

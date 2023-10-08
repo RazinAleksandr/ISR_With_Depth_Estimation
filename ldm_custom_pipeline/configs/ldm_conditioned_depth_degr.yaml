@@ -4,12 +4,13 @@
 initialization:
   latent_size: 32
   n_epochs: 1 #10
+  val_step: 10
 
 # Parameters for datasets and dataloaders
 train_datasets:
   image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/trainsets/HR"
   depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/trainsets/HR"
-  batch_size: 4
+  batch_size: 16
   shuffle: false
   transform: "BaseTransform"
   degradation: "BSRDegradation"
@@ -78,4 +79,4 @@ model:
 logging:
   experiment_name: "VQVae, Conditioned Unet2D, exp 0"
   logdir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/logdir/test_samples"
-  mlflow_log: true
+  log: "wandb" # "mlflow"
