@@ -1,0 +1,81 @@
+# config.yaml
+
+# Parameters for initialization
+initialization:
+  latent_size: 32
+  n_epochs: 1 #10
+
+# Parameters for datasets and dataloaders
+train_datasets:
+  image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/trainsets/HR"
+  depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/trainsets/HR"
+  batch_size: 4
+  shuffle: false
+  transform: "BaseTransform"
+  degradation: "BSRDegradation"
+  image_dataset: "ImageDataset"
+  cond_dataset: "ConditionDataset"
+  image_transform_params:
+      size: 64  #128
+      resize: true
+  cond_transform_params:
+      size: 16 #32
+      resize: true
+  degradation_params: {}
+
+val_datasets:
+  image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/valsets/HR"
+  depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/valsets/HR"
+  batch_size: 4
+  shuffle: false
+  transform: "BaseTransform"
+  degradation: "BSRDegradation"
+  image_dataset: "ImageDataset"
+  cond_dataset: "ConditionDataset"
+  image_transform_params:
+      size: 64  #128
+      resize: true
+  cond_transform_params:
+      size: 16 #32
+      resize: true
+  degradation_params: {}
+
+test_datasets:
+  image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/testsets/HR"
+  depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/testsets/HR"
+  batch_size: 4
+  shuffle: false
+  transform: "BaseTransform"
+  degradation: "BSRDegradation"
+  image_dataset: "ImageDataset"
+  cond_dataset: "ConditionDataset"
+  image_transform_params:
+      size: 64  #128
+      resize: true
+  cond_transform_params:
+      size: 16 #32
+      resize: true
+  degradation_params: {}
+
+# Parameters for model and optimizer
+model:
+  device: 'cpu'
+  lr: 0.001
+  num_train_timesteps: 10
+  unet_model_params:
+    sample_size: 32
+    input_channels: 3
+    layers_per_block: 2
+    block_out_channels:
+      - 32
+      - 64
+      - 64
+  pretrain_pipeline: "LDMSuperResolutionPipeline"
+  pretrain_model_id: "CompVis/ldm-super-resolution-4x-openimages"
+  noise_scheduler: "DDIMScheduler"
+  loss: "MSE"
+
+logging:
+  experiment_name: "VQVae, Conditioned Unet2D, exp 0"
+  logdir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/logdir/test_samples"
+  mlflow_log: true
