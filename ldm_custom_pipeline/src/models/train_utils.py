@@ -36,10 +36,8 @@ def validate(unet, vae, image_dataloader, cond_dataloader, device, num_train_tim
     unet.eval()  # Set the model to evaluation mode
 
     losses = []
-    total_iterations = len(image_dataloader)
-    pbar = tqdm(total=total_iterations, desc=f"Epoch {epoch}. Validation loop")
     with torch.no_grad():
-        for images, (degradations, depths) in tqdm(zip(image_dataloader, cond_dataloader)):
+        for images, (degradations, depths) in tqdm(zip(image_dataloader, cond_dataloader), desc="Validation"):
             images = images.to(device) * 2 - 1
             degradations = degradations.to(device)
             depths = depths.to(device)
@@ -54,10 +52,6 @@ def validate(unet, vae, image_dataloader, cond_dataloader, device, num_train_tim
             loss = loss_fn(pred, noise)
             
             losses.append(loss.item())
-
-            pbar.set_description(f"Validation Loss: {loss.item():.4f}")
-            pbar.update(1)
-    pbar.close()
 
     return sum(losses) / len(losses)
 
@@ -83,7 +77,7 @@ def fit(n_epochs,
 
     train_loss_history, val_loss_history = [], []
 
-    total_iterations = len(train_image_dataloader) + len(val_image_dataloader)
+    total_iterations = len(train_image_dataloader)
     iteration = 0  # Initialize iteration counter
     for epoch in range(1, n_epochs+1):
 
@@ -95,7 +89,8 @@ def fit(n_epochs,
             train_loss = train_one_batch(unet, vae, images, degradations, depths, opt, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log)
             
             iteration += 1  # Increment iteration counter
-            
+            pbar.update(1)
+
             # Check if it's time for validation
             if iteration % val_step == 0:
                 val_loss = validate(unet, vae, val_image_dataloader, val_cond_dataloader, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log)
@@ -131,11 +126,9 @@ def fit(n_epochs,
 def test(unet, vae, image_dataloader, cond_dataloader, device, num_train_timesteps, noise_scheduler):
     unet.eval()  # Set the model to evaluation mode
     
-    total_iterations = len(image_dataloader)
-    pbar = tqdm(total=total_iterations, desc=f"Process test sampes")
     decoded_samples = []
     with torch.no_grad():
-        for images, (degradations, depths) in tqdm(zip(image_dataloader, cond_dataloader)):
+        for images, (degradations, depths) in tqdm(zip(image_dataloader, cond_dataloader), desc='Test'):
             images = images.to(device) * 2 - 1
             degradations = degradations.to(device)
             depths = depths.to(device)
@@ -150,8 +143,6 @@ def test(unet, vae, image_dataloader, cond_dataloader, device, num_train_timeste
 
             decoded = vae.decode(pred / 0.18215).sample
             decoded_samples.append(decoded)
-
-            pbar.update(1)
     
     return decoded_samples
     
