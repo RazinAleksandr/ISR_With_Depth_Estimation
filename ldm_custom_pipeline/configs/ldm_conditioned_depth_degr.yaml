@@ -2,7 +2,6 @@
 
 # Parameters for initialization
 initialization:
-  latent_size: 32
   n_epochs: 1 #10
   val_step: 10
 

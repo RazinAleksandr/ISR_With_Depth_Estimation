@@ -123,6 +123,7 @@ def fit(n_epochs,
     return train_loss_history, val_loss_history
 
 
+#####TODO add PSNR metric on the out
 def test(unet, vae, image_dataloader, cond_dataloader, device, num_train_timesteps, noise_scheduler):
     unet.eval()  # Set the model to evaluation mode
     

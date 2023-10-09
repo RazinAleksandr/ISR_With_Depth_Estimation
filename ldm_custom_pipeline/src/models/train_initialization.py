@@ -10,9 +10,8 @@ from src.utils.degradations import BSRDegradation
 from models.SuperResDepthConditionedUnet import SuperResDepthConditionedUnet
 
 
-def initialize_parameters(latent_size=32, n_epochs=10, val_step=100):
+def initialize_parameters(n_epochs=10, val_step=100):
     config = {
-        'latent_size': latent_size,
         'n_epochs': n_epochs,
         'val_step': val_step
     }
