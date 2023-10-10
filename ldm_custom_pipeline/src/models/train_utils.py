@@ -1,10 +1,12 @@
 import mlflow
 import wandb
-
 import torch
 from tqdm import tqdm
+import os
 
-from src.utils.helpers import save_and_log_images
+from src.utils.helpers import save_and_log_images, save_checkpoint
+from src.metrics.PSNR import PSNR
+
 
 def train_one_batch(unet, vae, images, degradations, depths, opt, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log=None):
     images = images.to(device) * 2 - 1
@@ -32,12 +34,12 @@ def train_one_batch(unet, vae, images, degradations, depths, opt, device, num_tr
     
     return loss.item()
 
-def validate(unet, vae, image_dataloader, cond_dataloader, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log=None):
+def validate(unet, vae, dataloader, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log=None):
     unet.eval()  # Set the model to evaluation mode
 
     losses = []
     with torch.no_grad():
-        for images, (degradations, depths) in tqdm(zip(image_dataloader, cond_dataloader), desc="Validation"):
+        for images, (degradations, depths) in tqdm(dataloader, desc="Validation"):
             images = images.to(device) * 2 - 1
             degradations = degradations.to(device)
             depths = depths.to(device)
@@ -62,28 +64,30 @@ def fit(n_epochs,
         num_train_timesteps, 
         unet, 
         vae, 
-        train_image_dataloader, 
-        train_cond_dataloader, 
-        val_image_dataloader, 
-        val_cond_dataloader,
-        test_image_dataloader,
-        test_cond_dataloader,
+        train_dataloader,
+        val_dataloader,
+        test_dataloader,
         opt,
         noise_scheduler,
         loss_fn,
         logdir,
         log=None,
-        val_step=400):
+        checkpoint_path=None,
+        val_step=400,
+        start_epoch=0,
+        test_metric=PSNR):
 
     train_loss_history, val_loss_history = [], []
 
-    total_iterations = len(train_image_dataloader)
+    best_loss = float('inf') # fpr checkpoint saving
+
+    total_iterations = len(train_dataloader)
     iteration = 0  # Initialize iteration counter
-    for epoch in range(1, n_epochs+1):
+    for epoch in range(1+start_epoch, n_epochs+1+start_epoch):
 
         epoch_train_losses, epoch_val_losses = [], []
         pbar = tqdm(total=total_iterations, desc=f"Epoch {epoch}/{n_epochs}")
-        for images, (degradations, depths) in tqdm(zip(train_image_dataloader, train_cond_dataloader)):
+        for images, (degradations, depths) in train_dataloader:
             # Training
             unet.train()
             train_loss = train_one_batch(unet, vae, images, degradations, depths, opt, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log)
@@ -93,7 +97,7 @@ def fit(n_epochs,
 
             # Check if it's time for validation
             if iteration % val_step == 0:
-                val_loss = validate(unet, vae, val_image_dataloader, val_cond_dataloader, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log)
+                val_loss = validate(unet, vae, val_dataloader, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log)
                 
                 if log == "mlflow":
                     mlflow.log_metric("val_loss", val_loss, step=epoch)
@@ -105,7 +109,7 @@ def fit(n_epochs,
             epoch_train_losses.append(train_loss)
 
         # Test and save images after each epoch
-        test_prediction = test(unet, vae, test_image_dataloader, test_cond_dataloader, device, num_train_timesteps, noise_scheduler)
+        test_prediction, mean_test_metric = test(unet, vae, test_dataloader, device, num_train_timesteps, noise_scheduler, test_metric, epoch, log)
         save_and_log_images(test_prediction, epoch, logdir, log)
 
 
@@ -114,23 +118,29 @@ def fit(n_epochs,
         epoch_train_losses = sum(epoch_train_losses) / len(epoch_train_losses)
         epoch_val_losses = sum(epoch_val_losses) / len(epoch_val_losses)
 
+        # save the best checkpoint
+        if checkpoint_path and (epoch_val_losses < best_loss):
+            best_loss = epoch_val_losses
+            save_checkpoint(epoch, unet, opt, epoch_val_losses, os.path.join(checkpoint_path, f'unet-{epoch}_epoch.pth'))
+
+
         train_loss_history.append(epoch_train_losses)
         val_loss_history.append(epoch_val_losses)
 
-        print(f"Epoch {epoch}/{n_epochs} => Train Loss: {epoch_train_losses:.4f}, Validation Loss: {epoch_val_losses:.4f}")
+        print(f"Epoch {epoch}/{n_epochs} => Train Loss: {epoch_train_losses:.4f}, Validation Loss: {epoch_val_losses:.4f}, Test metric {mean_test_metric:.4f}")
         print(' ')
     
     return train_loss_history, val_loss_history
 
 
-#####TODO add PSNR metric on the out
-def test(unet, vae, image_dataloader, cond_dataloader, device, num_train_timesteps, noise_scheduler):
+def test(unet, vae, dataloader, device, num_train_timesteps, noise_scheduler, test_metric, epoch, log=None):
     unet.eval()  # Set the model to evaluation mode
     
     decoded_samples = []
+    test_metric_values = []  # List to store PSNR values for each image
     with torch.no_grad():
-        for images, (degradations, depths) in tqdm(zip(image_dataloader, cond_dataloader), desc='Test'):
-            images = images.to(device) * 2 - 1
+        for images, (degradations, depths) in tqdm(dataloader, desc='Test'):
+            images = images.to(device) * 2 - 1 # mapped to (-1, 1)
             degradations = degradations.to(device)
             depths = depths.to(device)
             
@@ -143,8 +153,22 @@ def test(unet, vae, image_dataloader, cond_dataloader, device, num_train_timeste
             pred = unet(noisy_latents, timesteps, depths, degradations)
 
             decoded = vae.decode(pred / 0.18215).sample
+
+            # Compute PSNR for each image in the batch and store it
+            for orig, recon in zip(images, decoded):
+                test_metric_value = test_metric(orig, recon)
+                test_metric_values.append(test_metric_value)
+
             decoded_samples.append(decoded)
     
-    return decoded_samples
+    # Calculate mean PSNR for all test batches
+    mean_test_metric = sum(test_metric_values) / len(test_metric_values)
+    
+    if log == "mlflow":
+        mlflow.log_metric("mean_test_metric", mean_test_metric, step=epoch)
+    elif log == "wandb":
+        wandb.log({"mean_test_metric": mean_test_metric, "epoch": epoch})
+
+    return decoded_samples, mean_test_metric
     
     

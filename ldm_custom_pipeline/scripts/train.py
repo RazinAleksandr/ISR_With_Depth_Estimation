@@ -1,11 +1,10 @@
 import click
 import yaml
-
 import mlflow
 import wandb
 
 # Importing necessary modules and functions
-from src.utils.helpers import str_to_class
+from src.utils.helpers import str_to_class, load_checkpoint, set_seed
 from src.constants.classes import CLASS_MAPPING
 from src.models.train_initialization import initialize_parameters, initialize_datasets_and_dataloaders, initialize_model_and_optimizer
 from src.models.train_utils import fit
@@ -13,7 +12,8 @@ from src.models.train_utils import fit
 
 @click.command()
 @click.option('--config_path', default='config.yaml', help='Path to the configuration YAML file.')
-def main(config_path):
+@click.option('--checkpoint_resume', default=None, help='Path to the checkpoint.')
+def main(config_path, checkpoint_resume=None):
     # Load the configuration file
     with open(config_path, 'r') as stream:
         exp_config = yaml.safe_load(stream)
@@ -23,10 +23,13 @@ def main(config_path):
 
     # Now you can use the configuration values
     initial_params = initialize_parameters(**exp_config['initialization'])
-    train_image_dataloader, train_cond_dataloader = initialize_datasets_and_dataloaders(**exp_config['train_datasets'])
-    val_image_dataloader, val_cond_dataloader = initialize_datasets_and_dataloaders(**exp_config['val_datasets'])
-    test_image_dataloader, test_cond_dataloader = initialize_datasets_and_dataloaders(**exp_config['test_datasets'])
-    vae, unet, noise_scheduler, loss_fn, opt = initialize_model_and_optimizer(**exp_config['model'])
+
+    set_seed(initial_params['seed'])
+
+    train_dataloader = initialize_datasets_and_dataloaders(**exp_config['train_datasets'])
+    val_dataloader = initialize_datasets_and_dataloaders(**exp_config['val_datasets'])
+    test_dataloader = initialize_datasets_and_dataloaders(**exp_config['test_datasets'])
+    vae, unet, noise_scheduler, loss_fn, test_metric, opt = initialize_model_and_optimizer(**exp_config['model'])
     
     # get some train params
     device = exp_config['model']['device']
@@ -36,7 +39,13 @@ def main(config_path):
     logdir = exp_config['logging']['logdir']
     log = exp_config['logging']['log']
     val_step = initial_params['val_step']
+    checkpoint_path = initial_params['checkpoint_path']
     
+    # Before starting your training loop in the fit function:
+    start_epoch=0
+    if checkpoint_resume:
+        start_epoch, unet, opt, _ = load_checkpoint(unet, opt, checkpoint_resume)
+        print(f'Resume train from {start_epoch}, checkpoint_path: {checkpoint_resume}')
 
     # logging
     if log == "mlflow":
@@ -57,18 +66,18 @@ def main(config_path):
         num_train_timesteps, 
         unet, 
         vae, 
-        train_image_dataloader, 
-        train_cond_dataloader, 
-        val_image_dataloader, 
-        val_cond_dataloader,
-        test_image_dataloader, 
-        test_cond_dataloader, 
+        train_dataloader,
+        val_dataloader,
+        test_dataloader,
         opt,
         noise_scheduler,
         loss_fn,
         logdir,
         log,
-        val_step
+        checkpoint_path,
+        val_step,
+        start_epoch,
+        test_metric
         )
 
     if log == "mlflow":

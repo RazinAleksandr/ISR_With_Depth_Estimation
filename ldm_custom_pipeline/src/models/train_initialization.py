@@ -4,16 +4,19 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from diffusers import LDMSuperResolutionPipeline, DDIMScheduler
 
-from src.data.datasets import ImageDataset, ConditionDataset
+from src.metrics.PSNR import PSNR
+from src.data.datasets import ImageDataset, ConditionDataset, CombinedDataset
 from src.utils.transforms import BaseTransform
 from src.utils.degradations import BSRDegradation
 from models.SuperResDepthConditionedUnet import SuperResDepthConditionedUnet
 
 
-def initialize_parameters(n_epochs=10, val_step=100):
+def initialize_parameters(n_epochs=10, val_step=100, checkpoint_path=None, seed=17):
     config = {
         'n_epochs': n_epochs,
-        'val_step': val_step
+        'val_step': val_step,
+        'checkpoint_path': checkpoint_path,
+        'seed': seed,
     }
     return config
 
@@ -29,13 +32,14 @@ def initialize_datasets_and_dataloaders(image_dir,
                                         cond_transform_params: Dict = {'size': 32, 'resize': True},
                                         degradation_params: Dict = {}):
 
+    
     image_dataset = image_dataset(image_dir=image_dir, transform=transform(**image_transform_params))
     cond_dataset = cond_dataset(image_dir=image_dir, depth_dir=depth_dir, transform=transform(**cond_transform_params), degradation=degradation(**degradation_params))
     
-    image_dataloader = DataLoader(image_dataset, batch_size=batch_size, shuffle=shuffle)
-    cond_dataloader = DataLoader(cond_dataset, batch_size=batch_size, shuffle=shuffle)
-    
-    return image_dataloader, cond_dataloader
+    combined_dataset = CombinedDataset(image_dataset, cond_dataset)
+    combined_dataloader = DataLoader(combined_dataset, batch_size=batch_size, shuffle=shuffle)
+
+    return combined_dataloader
 
 def initialize_model_and_optimizer(device='cpu',
                                    lr=1e-3,
@@ -48,7 +52,8 @@ def initialize_model_and_optimizer(device='cpu',
                                    pretrain_pipeline: Optional[Any] = LDMSuperResolutionPipeline,
                                    pretrain_model_id: str = "CompVis/ldm-super-resolution-4x-openimages",
                                    noise_scheduler: Optional[Any] = DDIMScheduler,
-                                   loss: Optional[Any] = nn.MSELoss):
+                                   loss: Optional[Any] = nn.MSELoss,
+                                   test_metric: Optional[Any] = PSNR):
 
     
     # init vae  
@@ -60,7 +65,9 @@ def initialize_model_and_optimizer(device='cpu',
     noise_scheduler = noise_scheduler(num_train_timesteps=num_train_timesteps, beta_schedule='squaredcos_cap_v2')
     # Our loss finction
     loss_fn = loss()
+    # Test metric
+    test_metric = test_metric
     # opt
     opt = torch.optim.Adam(unet.parameters(), lr=lr)
     
-    return vae, unet, noise_scheduler, loss_fn, opt
+    return vae, unet, noise_scheduler, loss_fn, test_metric, opt

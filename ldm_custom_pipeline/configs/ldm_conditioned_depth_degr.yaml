@@ -2,15 +2,17 @@
 
 # Parameters for initialization
 initialization:
-  n_epochs: 1 #10
+  n_epochs: 3 #10
   val_step: 10
+  checkpoint_path: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/logdir/models"
+  seed: 17
 
 # Parameters for datasets and dataloaders
 train_datasets:
-  image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/trainsets/HR"
-  depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/trainsets/HR"
+  image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/trainset"
+  depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/trainset"
   batch_size: 16
-  shuffle: false
+  shuffle: true
   transform: "BaseTransform"
   degradation: "BSRDegradation"
   image_dataset: "ImageDataset"
@@ -24,10 +26,10 @@ train_datasets:
   degradation_params: {}
 
 val_datasets:
-  image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/valsets/HR"
-  depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/valsets/HR"
+  image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/valset"
+  depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/valset"
   batch_size: 4
-  shuffle: false
+  shuffle: true
   transform: "BaseTransform"
   degradation: "BSRDegradation"
   image_dataset: "ImageDataset"
@@ -41,10 +43,10 @@ val_datasets:
   degradation_params: {}
 
 test_datasets:
-  image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/testsets/HR"
-  depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/testsets/HR"
+  image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/testset"
+  depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/testset"
   batch_size: 4
-  shuffle: false
+  shuffle: true
   transform: "BaseTransform"
   degradation: "BSRDegradation"
   image_dataset: "ImageDataset"
@@ -74,6 +76,7 @@ model:
   pretrain_model_id: "CompVis/ldm-super-resolution-4x-openimages"
   noise_scheduler: "DDIMScheduler"
   loss: "MSE"
+  test_metric: "PSNR"
 
 logging:
   experiment_name: "VQVae, Conditioned Unet2D, exp 0"

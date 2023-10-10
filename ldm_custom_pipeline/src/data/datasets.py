@@ -59,3 +59,17 @@ class ConditionDataset(Dataset):
         
         return degraded_image, depth_map
 
+
+class CombinedDataset(Dataset):
+    def __init__(self, image_dataset, cond_dataset):
+        self.image_dataset = image_dataset
+        self.cond_dataset = cond_dataset
+        assert len(self.image_dataset) == len(self.cond_dataset), "Datasets must be of the same size"
+
+    def __len__(self):
+        return len(self.image_dataset)
+
+    def __getitem__(self, idx):
+        image = self.image_dataset[idx]
+        degraded_image, depth_map = self.cond_dataset[idx]
+        return image, (degraded_image, depth_map)
