@@ -3,6 +3,7 @@ import wandb
 import random
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import torchvision.utils as vutils
 
@@ -23,18 +24,33 @@ def str_to_class(exp_config, CLASS_MAPPING):
     return exp_config
 
 
-def save_and_log_images(decoded_samples, epoch, logdir, log=False):
-    for idx, image in enumerate(decoded_samples):
+def save_and_log_images(decoded_samples, noise_samples, epoch, logdir, log=False):
+    for idx, (image, grid_dict) in enumerate(zip(decoded_samples, noise_samples)):
         # Save the image to a file
         file_name = f"reconstructed_epoch_{epoch}_sample_{idx}.png"
         file_path = os.path.join(logdir, file_name)
         vutils.save_image(image, file_path)
 
-        # Log the file to MLflow
+        n = len(grid_dict['samples'])
+        fig, axs = plt.subplots(n, 1, figsize=(12, 5))
+        for i in range(len(grid_dict['samples'])):
+            axs[i].imshow(grid_dict['samples'][i])
+            axs[i].set_title(f"Current x (step {grid_dict['steps'][i]})")
+        plt.tight_layout()
+
+        # Save the concatenated image as a file
+        concatenated_file_name = f"unet_epoch_{epoch}_sample_{idx}.png"
+        concatenated_file_path = os.path.join(logdir, concatenated_file_name)
+        plt.savefig(concatenated_file_path)
+
+        # Log the concatenated image file to MLflow
         if log == "mlflow":
             mlflow.log_artifact(file_path)
+            mlflow.log_artifact(concatenated_file_path)
         elif log == "wandb":
-            wandb.log({"reconstructed_images": [wandb.Image(image, caption=file_name)]})
+            wandb.log({"reconstructed_images": [wandb.Image(image, caption=file_name)], 
+                    #    "concatenated_images": [wandb.Image(concatenated_image, caption=concatenated_file_name)]})
+                       "concatenated_images": [wandb.Image(fig)]})
 
 
 def save_checkpoint(epoch, model, optimizer, loss, filename):

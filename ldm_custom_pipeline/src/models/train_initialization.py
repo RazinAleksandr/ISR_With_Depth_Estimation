@@ -43,7 +43,6 @@ def initialize_datasets_and_dataloaders(image_dir,
 
 def initialize_model_and_optimizer(device='cpu',
                                    lr=1e-3,
-                                   num_train_timesteps=10,
                                    unet_model_params: Dict = {
                                        'sample_size': 32, 
                                        'input_channels': 3, 
@@ -52,8 +51,13 @@ def initialize_model_and_optimizer(device='cpu',
                                    pretrain_pipeline: Optional[Any] = LDMSuperResolutionPipeline,
                                    pretrain_model_id: str = "CompVis/ldm-super-resolution-4x-openimages",
                                    noise_scheduler: Optional[Any] = DDIMScheduler,
+                                   scheduler_train_params: Dict = {
+                                       'num_train_timesteps': 10,
+                                       'beta_schedule': 'squaredcos_cap_v2'
+                                   },
                                    loss: Optional[Any] = nn.MSELoss,
-                                   test_metric: Optional[Any] = PSNR):
+                                   test_metric: Optional[Any] = PSNR,
+                                   **kwargs):
 
     
     # init vae  
@@ -62,7 +66,7 @@ def initialize_model_and_optimizer(device='cpu',
     # init cond unet
     unet = SuperResDepthConditionedUnet(**unet_model_params).to(device)
     # Create a scheduler
-    noise_scheduler = noise_scheduler(num_train_timesteps=num_train_timesteps, beta_schedule='squaredcos_cap_v2')
+    noise_scheduler = noise_scheduler(**scheduler_train_params)
     # Our loss finction
     loss_fn = loss()
     # Test metric

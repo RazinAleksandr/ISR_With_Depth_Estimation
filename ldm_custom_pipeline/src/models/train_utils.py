@@ -3,6 +3,7 @@ import wandb
 import torch
 from tqdm import tqdm
 import os
+import torchvision
 
 from src.utils.helpers import save_and_log_images, save_checkpoint
 from src.metrics.PSNR import PSNR
@@ -75,8 +76,10 @@ def fit(n_epochs,
         checkpoint_path=None,
         val_step=400,
         start_epoch=0,
-        test_metric=PSNR):
+        test_metric=PSNR,
+        num_inference_steps=None):
 
+    num_inference_steps =  num_train_timesteps if not num_inference_steps else num_inference_steps
     train_loss_history, val_loss_history = [], []
 
     best_loss = float('inf') # fpr checkpoint saving
@@ -109,9 +112,8 @@ def fit(n_epochs,
             epoch_train_losses.append(train_loss)
 
         # Test and save images after each epoch
-        test_prediction, mean_test_metric = test(unet, vae, test_dataloader, device, num_train_timesteps, noise_scheduler, test_metric, epoch, log)
-        save_and_log_images(test_prediction, epoch, logdir, log)
-
+        test_prediction, mean_test_metric, noise_samples = test(unet, vae, test_dataloader, device, num_inference_steps, noise_scheduler, test_metric, epoch, log)
+        save_and_log_images(test_prediction, noise_samples, epoch, logdir, log)
 
         pbar.close()
 
@@ -133,10 +135,51 @@ def fit(n_epochs,
     return train_loss_history, val_loss_history
 
 
-def test(unet, vae, dataloader, device, num_train_timesteps, noise_scheduler, test_metric, epoch, log=None):
-    unet.eval()  # Set the model to evaluation mode
+# def test(unet, vae, dataloader, device, num_train_timesteps, noise_scheduler, test_metric, epoch, log=None):
+#     unet.eval()  # Set the model to evaluation mode
     
-    decoded_samples = []
+#     decoded_samples = []
+#     test_metric_values = []  # List to store PSNR values for each image
+#     with torch.no_grad():
+#         for images, (degradations, depths) in tqdm(dataloader, desc='Test'):
+#             images = images.to(device) * 2 - 1 # mapped to (-1, 1)
+#             degradations = degradations.to(device)
+#             depths = depths.to(device)
+            
+#             latents = 0.18215 * vae.encode(images).latents
+            
+#             noise = torch.randn_like(latents)
+#             timesteps = torch.randint(0, num_train_timesteps-1, (latents.shape[0],)).long().to(device)
+#             noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+            
+#             pred = unet(noisy_latents, timesteps, depths, degradations)
+
+#             decoded = vae.decode(pred / 0.18215).sample
+
+#             # Compute PSNR for each image in the batch and store it
+#             for orig, recon in zip(images, decoded):
+#                 test_metric_value = test_metric(orig, recon)
+#                 test_metric_values.append(test_metric_value)
+
+#             decoded_samples.append(decoded)
+    
+#     # Calculate mean PSNR for all test batches
+#     mean_test_metric = sum(test_metric_values) / len(test_metric_values)
+    
+#     if log == "mlflow":
+#         mlflow.log_metric("mean_test_metric", mean_test_metric, step=epoch)
+#     elif log == "wandb":
+#         wandb.log({"mean_test_metric": mean_test_metric, "epoch": epoch})
+
+#     return decoded_samples, mean_test_metric
+
+
+
+def test(unet, vae, dataloader, device, num_inference_steps, noise_scheduler, test_metric, epoch, log=None):
+    unet.eval()  # Set the model to evaluation mode
+    noise_scheduler.set_timesteps(num_inference_steps=num_inference_steps)
+
+    decoded_samples, noise_samples = [], []
     test_metric_values = []  # List to store PSNR values for each image
     with torch.no_grad():
         for images, (degradations, depths) in tqdm(dataloader, desc='Test'):
@@ -144,21 +187,37 @@ def test(unet, vae, dataloader, device, num_train_timesteps, noise_scheduler, te
             degradations = degradations.to(device)
             depths = depths.to(device)
             
-            latents = 0.18215 * vae.encode(images).latents
-            
-            noise = torch.randn_like(latents)
-            timesteps = torch.randint(0, num_train_timesteps-1, (latents.shape[0],)).long().to(device)
-            noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
-            
-            pred = unet(noisy_latents, timesteps, depths, degradations)
 
-            decoded = vae.decode(pred / 0.18215).sample
+            # The random starting point
+            latents = torch.randn_like(degradations).to(device)
+
+            # Initialize an empty lists to store individual grids
+            grid_dict = {'samples': [], 'steps': []}
+            # Loop through the sampling timesteps
+            for i, t in tqdm(enumerate(noise_scheduler.timesteps)):
+                # Get the prediction
+                noise_pred = unet(latents, t, depths, degradations)
+
+                # Calculate what the updated sample should look like with the scheduler
+                scheduler_output = noise_scheduler.step(noise_pred, t, latents)
+
+                # Update latents
+                latents = scheduler_output.prev_sample
+
+                # Occasionally add the grid to the list
+                if i % 10 == 0 or i == len(noise_scheduler.timesteps) - 1:
+                    grid = torchvision.utils.make_grid(latents, nrow=4).permute(1, 2, 0)
+                    grid_dict['samples'].append(grid.cpu().clip(-1, 1) * 0.5 + 0.5)
+                    grid_dict['steps'].append(i)
+
+            decoded = vae.decode(latents).sample
 
             # Compute PSNR for each image in the batch and store it
             for orig, recon in zip(images, decoded):
                 test_metric_value = test_metric(orig, recon)
                 test_metric_values.append(test_metric_value)
 
+            noise_samples.append(grid_dict)
             decoded_samples.append(decoded)
     
     # Calculate mean PSNR for all test batches
@@ -169,6 +228,5 @@ def test(unet, vae, dataloader, device, num_train_timesteps, noise_scheduler, te
     elif log == "wandb":
         wandb.log({"mean_test_metric": mean_test_metric, "epoch": epoch})
 
-    return decoded_samples, mean_test_metric
-    
+    return decoded_samples, mean_test_metric, noise_samples
     

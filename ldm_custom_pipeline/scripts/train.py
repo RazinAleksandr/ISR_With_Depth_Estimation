@@ -33,13 +33,14 @@ def main(config_path, checkpoint_resume=None):
     
     # get some train params
     device = exp_config['model']['device']
-    num_train_timesteps = exp_config['model']['num_train_timesteps']
+    num_train_timesteps = exp_config['model']['scheduler_train_params']['num_train_timesteps']
     n_epochs = initial_params['n_epochs']
     exp_name = exp_config['logging']['experiment_name']
     logdir = exp_config['logging']['logdir']
     log = exp_config['logging']['log']
     val_step = initial_params['val_step']
     checkpoint_path = initial_params['checkpoint_path']
+    num_inference_steps = exp_config['model']['scheduler_inference_params']['num_inference_steps']
     
     # Before starting your training loop in the fit function:
     start_epoch=0
@@ -77,7 +78,8 @@ def main(config_path, checkpoint_resume=None):
         checkpoint_path,
         val_step,
         start_epoch,
-        test_metric
+        test_metric,
+        num_inference_steps
         )
 
     if log == "mlflow":

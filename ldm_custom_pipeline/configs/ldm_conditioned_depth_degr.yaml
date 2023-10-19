@@ -63,7 +63,6 @@ test_datasets:
 model:
   device: 'cpu'
   lr: 0.001
-  num_train_timesteps: 10
   unet_model_params:
     sample_size: 32
     input_channels: 3
@@ -75,6 +74,11 @@ model:
   pretrain_pipeline: "LDMSuperResolutionPipeline"
   pretrain_model_id: "CompVis/ldm-super-resolution-4x-openimages"
   noise_scheduler: "DDIMScheduler"
+  scheduler_train_params: 
+    num_train_timesteps: 10
+    beta_schedule: "squaredcos_cap_v2"
+  scheduler_inference_params:
+    num_inference_steps: 5
   loss: "MSE"
   test_metric: "PSNR"
 
