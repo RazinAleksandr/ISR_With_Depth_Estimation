@@ -46,7 +46,7 @@ def eval(
     test_metric_values = []  # List to store PSNR values for each image
     with torch.no_grad():
         for images, (degradations, depths) in tqdm(dataloader, desc='Test'):
-            images = images.to(device) * 2 - 1 # mapped to (-1, 1)
+            images = images.to(device) # * 2 - 1 # mapped to (-1, 1) # we sample from normal distr, so it is not necessary
             degradations = degradations.to(device)
             depths = depths.to(device)
             
@@ -56,7 +56,7 @@ def eval(
             # Initialize an empty lists to store individual grids
             grid_dict = {'samples': [], 'steps': []}
             # Loop through the sampling timesteps
-            for i, t in tqdm(enumerate(noise_scheduler.timesteps)):
+            for i, t in enumerate(noise_scheduler.timesteps):
                 # Get the prediction
                 noise_pred = unet(latents, t, depths, degradations)
 
@@ -67,12 +67,14 @@ def eval(
                 latents = scheduler_output.prev_sample
 
                 # Occasionally add the grid to the list
-                if i % 10 == 0 or i == len(noise_scheduler.timesteps) - 1:
+                if i % ( int(len(noise_scheduler.timesteps)*0.1) ) == 0 or i == len(noise_scheduler.timesteps) - 1:
                     grid = torchvision.utils.make_grid(latents, nrow=4).permute(1, 2, 0)
                     grid_dict['samples'].append(grid.cpu().clip(-1, 1) * 0.5 + 0.5)
                     grid_dict['steps'].append(i)
 
             decoded = vae.decode(latents).sample
+            # Concatenate them along the batch dimension
+            decoded = torch.cat((images, decoded), 0)
 
             # Compute PSNR for each image in the batch and store it
             for orig, recon in zip(images, decoded):

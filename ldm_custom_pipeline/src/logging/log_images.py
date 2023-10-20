@@ -1,6 +1,6 @@
 # Standard libraries
 import os
-
+import numpy as np
 import matplotlib.pyplot as plt
 
 # Third-party libraries
@@ -33,15 +33,27 @@ def save_and_log_images(decoded_samples: torch.Tensor, noise_samples: List[Dict[
         vutils.save_image(image, file_path)
 
         n = len(grid_dict['samples'])
-        fig, axs = plt.subplots(n, 1, figsize=(12, 5))
-        for i in range(len(grid_dict['samples'])):
+        cols = n // 2
+        rows = np.ceil(n / cols).astype(int)
+
+        fig, axs = plt.subplots(rows, cols, figsize=(12, 5*rows))
+        # Flatten axs to easily iterate over it
+        axs = axs.ravel()
+
+        for i in range(n):
             axs[i].imshow(grid_dict['samples'][i])
             axs[i].set_title(f"Current x (step {grid_dict['steps'][i]})")
+            axs[i].axis('off')  # Optional: to turn off axis ticks and labels
+
+        # If there are any extra axes, we should turn them off.
+        for j in range(n, rows * cols):
+            axs[j].axis('off')
+
         plt.tight_layout()
 
         # Save the concatenated image as a file
         concatenated_file_name = f"unet_epoch_{epoch}_sample_{idx}.png"
-        concatenated_file_path = os.path.join(logdir, concatenated_file_name)
+        concatenated_file_path = os.path.join(f'{logdir}/test_samples', concatenated_file_name)
         plt.savefig(concatenated_file_path)
 
         # Log the concatenated image file to MLflow
