@@ -1,15 +1,26 @@
-import mlflow
-import wandb
-import random
+# Standard libraries
 import os
+import random
+
 import numpy as np
-import matplotlib.pyplot as plt
+
+# Third-party libraries
 import torch
-import torchvision.utils as vutils
+
+# Local application/modules
+from src.constants.types import Dict, Any
 
 
-# Replace string class names with actual classes using the mapping
-def str_to_class(exp_config, CLASS_MAPPING):
+def str_to_class(exp_config: Dict[str, Any], CLASS_MAPPING: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert string class names in the experiment configuration to actual class references using the provided mapping.
+
+    :param exp_config: Dictionary containing experiment configuration with string class names.
+    :param CLASS_MAPPING: Dictionary containing the mapping from string class names to actual class references.
+
+    :return: Updated experiment configuration with actual class references.
+    """
+
     for dataset in ['train_datasets', 'val_datasets', 'test_datasets']:    
         exp_config[dataset]['image_dataset'] = CLASS_MAPPING[exp_config[dataset]['image_dataset']]
         exp_config[dataset]['cond_dataset'] = CLASS_MAPPING[exp_config[dataset]['cond_dataset']]
@@ -24,63 +35,37 @@ def str_to_class(exp_config, CLASS_MAPPING):
     return exp_config
 
 
-def save_and_log_images(decoded_samples, noise_samples, epoch, logdir, log=False):
-    for idx, (image, grid_dict) in enumerate(zip(decoded_samples, noise_samples)):
-        # Save the image to a file
-        file_name = f"reconstructed_epoch_{epoch}_sample_{idx}.png"
-        file_path = os.path.join(logdir, file_name)
-        vutils.save_image(image, file_path)
+def set_seed(seed: int) -> None:
+    """
+    Set seeds for randomness sources to ensure reproducibility.
 
-        n = len(grid_dict['samples'])
-        fig, axs = plt.subplots(n, 1, figsize=(12, 5))
-        for i in range(len(grid_dict['samples'])):
-            axs[i].imshow(grid_dict['samples'][i])
-            axs[i].set_title(f"Current x (step {grid_dict['steps'][i]})")
-        plt.tight_layout()
+    :param seed: Seed value.
+    """
 
-        # Save the concatenated image as a file
-        concatenated_file_name = f"unet_epoch_{epoch}_sample_{idx}.png"
-        concatenated_file_path = os.path.join(logdir, concatenated_file_name)
-        plt.savefig(concatenated_file_path)
-
-        # Log the concatenated image file to MLflow
-        if log == "mlflow":
-            mlflow.log_artifact(file_path)
-            mlflow.log_artifact(concatenated_file_path)
-        elif log == "wandb":
-            wandb.log({"reconstructed_images": [wandb.Image(image, caption=file_name)], 
-                    #    "concatenated_images": [wandb.Image(concatenated_image, caption=concatenated_file_name)]})
-                       "concatenated_images": [wandb.Image(fig)]})
-
-
-def save_checkpoint(epoch, model, optimizer, loss, filename):
-    checkpoint = {
-        'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'loss': loss,
-    }
-    torch.save(checkpoint, filename)
-
-
-def load_checkpoint(model, optimizer, filename):
-    if os.path.isfile(filename):
-        checkpoint = torch.load(filename)
-        epoch = checkpoint['epoch']
-        model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        loss = checkpoint['loss']
-        print(f"Loaded checkpoint from epoch {epoch}")
-        return epoch, model, optimizer, loss
-    else:
-        print("No checkpoint found.")
-        return None, model, optimizer, None
-
-
-def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
+
+def create_folder_if_not_exists(folder_path):
+    """
+    Checks if a folder exists at the specified path and creates it if it doesn't exist.
+
+    Args:
+        folder_path (str): The path of the folder to check or create.
+
+    Returns:
+        None
+    """
+    
+    if not os.path.exists(folder_path):
+        try:
+            os.makedirs(folder_path)
+            print(f"Folder '{folder_path}' created successfully.")
+        except OSError as e:
+            print(f"Error creating folder '{folder_path}': {str(e)}")
+    else:
+        print(f"Folder '{folder_path}' already exists.")

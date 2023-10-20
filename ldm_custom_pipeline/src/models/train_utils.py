@@ -1,15 +1,54 @@
-import mlflow
-import wandb
-import torch
-from tqdm import tqdm
+# Standard libraries
 import os
-import torchvision
+from tqdm import tqdm
 
-from src.utils.helpers import save_and_log_images, save_checkpoint
+# Third-party libraries
+import mlflow
+import torch
+import wandb
+
+# Local application/modules
+from src.constants.types import Any, Optional, Tuple, List
 from src.metrics.PSNR import PSNR
+from src.models.eval_utils import eval
+from src.models.model_utils import save_checkpoint
+from src.logging.log_images import save_and_log_images
 
 
-def train_one_batch(unet, vae, images, degradations, depths, opt, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log=None):
+# Single train step
+def train_one_batch(
+        unet:                   torch.nn.Module,
+        vae:                    torch.nn.Module,
+        images:                 torch.Tensor,
+        degradations:           torch.Tensor,
+        depths:                 torch.Tensor,
+        opt:                    torch.optim.Optimizer,
+        device:                 torch.device,
+        num_train_timesteps:    int,
+        noise_scheduler:        Any,
+        loss_fn:                torch.nn.Module,
+        epoch:                  int,
+        log:                    Optional[str] = None
+    ) ->                        float:
+    """
+    Train the model on a single batch of data.
+
+    :param unet: The U-Net model.
+    :param vae: Variational AutoEncoder model.
+    :param images: Batch of training images.
+    :param degradations: Degradations associated with the images.
+    :param depths: Depths associated with the images.
+    :param opt: Optimizer for the model.
+    :param device: Device to run the model on.
+    :param num_train_timesteps: Number of training time steps.
+    :param noise_scheduler: Noise scheduler.
+    :param loss_fn: Loss function to compute the training loss.
+    :param epoch: Current training epoch.
+    :param log: The logging method to use ("mlflow" or "wandb"). Default is None.
+
+    :return: Loss value for the batch.
+    """
+
     images = images.to(device) * 2 - 1
     degradations = degradations.to(device)
     depths = depths.to(device)
@@ -35,7 +74,31 @@ def train_one_batch(unet, vae, images, degradations, depths, opt, device, num_tr
     
     return loss.item()
 
-def validate(unet, vae, dataloader, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log=None):
+
+# Validation loop
+def validate(
+        unet:                   torch.nn.Module,
+        vae:                    torch.nn.Module,
+        dataloader:             torch.utils.data.DataLoader,
+        device:                 torch.device,
+        num_train_timesteps:    int,
+        noise_scheduler:        Any,
+        loss_fn:                torch.nn.Module
+    ) ->                        float:
+    """
+    Validate the model on a set of data.
+
+    :param unet: The U-Net model.
+    :param vae: Variational AutoEncoder model.
+    :param dataloader: Validation dataloader.
+    :param device: Device to run the model on.
+    :param num_train_timesteps: Number of training time steps.
+    :param noise_scheduler: Noise scheduler.
+    :param loss_fn: Loss function to compute the training loss.
+    
+    :return: Average validation loss.
+    """
+    
     unet.eval()  # Set the model to evaluation mode
 
     losses = []
@@ -58,49 +121,81 @@ def validate(unet, vae, dataloader, device, num_train_timesteps, noise_scheduler
 
     return sum(losses) / len(losses)
 
-    
+
 # Training and validation loop
-def fit(n_epochs, 
-        device, 
-        num_train_timesteps, 
-        unet, 
-        vae, 
-        train_dataloader,
-        val_dataloader,
-        test_dataloader,
-        opt,
-        noise_scheduler,
-        loss_fn,
-        logdir,
-        log=None,
-        checkpoint_path=None,
-        val_step=400,
-        start_epoch=0,
-        test_metric=PSNR,
-        num_inference_steps=None):
+def fit(
+        n_epochs:                   int,
+        device:                     torch.device,
+        num_train_timesteps:        int,
+        unet:                       torch.nn.Module,
+        vae:                        torch.nn.Module,
+        train_dataloader:           torch.utils.data.DataLoader,
+        val_dataloader:             torch.utils.data.DataLoader,
+        test_dataloader:            torch.utils.data.DataLoader,
+        opt:                        torch.optim.Optimizer,
+        noise_scheduler:            Any,
+        loss_fn:                    torch.nn.Module,
+        logdir:                     str = None,
+        log:                        Optional[str] = None,
+        model_name:                 str = None,
+        val_step:                   int = 400,
+        start_epoch:                int = 0,
+        test_metric:                Optional[Any] = PSNR,
+        num_inference_steps:        Optional[int] = None
+    ) ->                            Tuple[List[float], List[float]]:
+    """
+    Train, validate, and test the model for a specified number of epochs.
 
-    num_inference_steps =  num_train_timesteps if not num_inference_steps else num_inference_steps
+    :param n_epochs: Number of epochs for training.
+    :param device: Computational device (CPU or GPU) the model runs on.
+    :param num_train_timesteps: Number of timesteps during training.
+    :param unet: The U-Net model used for predictions.
+    :param vae: The Variational AutoEncoder model used for encoding and decoding.
+    :param train_dataloader: DataLoader providing training data batches.
+    :param val_dataloader: DataLoader providing validation data batches.
+    :param test_dataloader: DataLoader providing test data batches.
+    :param opt: Optimizer for model parameter updates.
+    :param noise_scheduler: Scheduler used to manage and apply noise during training.
+    :param loss_fn: Loss function used to compute the training loss.
+    :param logdir: Directory where logs will be saved.
+    :param log: Type of logging used. Options include "mlflow", "wandb", or None.
+    :param model_name: Name of the model. Used for saving the model checkpoint.
+    :param val_step: Number of iterations after which validation is performed.
+    :param start_epoch: Epoch number to start training from (useful for resuming training).
+    :param test_metric: Metric function used to evaluate the test performance.
+    :param num_inference_steps: Number of inference steps during testing.
+
+    :return: Tuple containing lists of training and validation losses over epochs.
+    """
+
+    num_inference_steps = num_train_timesteps if not num_inference_steps else num_inference_steps
     train_loss_history, val_loss_history = [], []
-
-    best_loss = float('inf') # fpr checkpoint saving
+    best_loss = float('inf')  # For checkpoint saving
 
     total_iterations = len(train_dataloader)
     iteration = 0  # Initialize iteration counter
-    for epoch in range(1+start_epoch, n_epochs+1+start_epoch):
-
+    
+    for epoch in range(1 + start_epoch, n_epochs + 1 + start_epoch):
         epoch_train_losses, epoch_val_losses = [], []
         pbar = tqdm(total=total_iterations, desc=f"Epoch {epoch}/{n_epochs}")
+        
         for images, (degradations, depths) in train_dataloader:
-            # Training
+            # train step
             unet.train()
-            train_loss = train_one_batch(unet, vae, images, degradations, depths, opt, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log)
+            train_loss = train_one_batch(
+                unet, vae, images, degradations, depths, opt, device,
+                num_train_timesteps, noise_scheduler, loss_fn, epoch, log
+            )
             
-            iteration += 1  # Increment iteration counter
+            iteration += 1
             pbar.update(1)
 
-            # Check if it's time for validation
+            # validation loop
             if iteration % val_step == 0:
-                val_loss = validate(unet, vae, val_dataloader, device, num_train_timesteps, noise_scheduler, loss_fn, epoch, log)
+                val_loss = validate(
+                    unet, vae, val_dataloader, device, num_train_timesteps,
+                    noise_scheduler, loss_fn
+                )
                 
                 if log == "mlflow":
                     mlflow.log_metric("val_loss", val_loss, step=epoch)
@@ -111,122 +206,38 @@ def fit(n_epochs,
 
             epoch_train_losses.append(train_loss)
 
-        # Test and save images after each epoch
-        test_prediction, mean_test_metric, noise_samples = test(unet, vae, test_dataloader, device, num_inference_steps, noise_scheduler, test_metric, epoch, log)
+        # evaluation loop
+        test_prediction, mean_test_metric, noise_samples = eval(
+            unet, vae, test_dataloader, device, num_inference_steps, 
+            noise_scheduler, test_metric, epoch, log
+        )
+        
+        # log images
         save_and_log_images(test_prediction, noise_samples, epoch, logdir, log)
-
         pbar.close()
 
-        epoch_train_losses = sum(epoch_train_losses) / len(epoch_train_losses)
-        epoch_val_losses = sum(epoch_val_losses) / len(epoch_val_losses)
+        avg_train_loss = sum(epoch_train_losses) / len(epoch_train_losses)
+        avg_val_loss = sum(epoch_val_losses) / len(epoch_val_losses)
 
-        # save the best checkpoint
-        if checkpoint_path and (epoch_val_losses < best_loss):
-            best_loss = epoch_val_losses
-            save_checkpoint(epoch, unet, opt, epoch_val_losses, os.path.join(checkpoint_path, f'unet-{epoch}_epoch.pth'))
+        # update model checkpoint
+        if model_name and (avg_val_loss < best_loss):
+            best_loss = avg_val_loss
+            save_checkpoint(
+                epoch, unet, opt, avg_val_loss,
+                os.path.join(f'{logdir}/models', f'{model_name}-{epoch}_epoch.pth')
+            )
 
+        train_loss_history.append(avg_train_loss)
+        val_loss_history.append(avg_val_loss)
 
-        train_loss_history.append(epoch_train_losses)
-        val_loss_history.append(epoch_val_losses)
-
-        print(f"Epoch {epoch}/{n_epochs} => Train Loss: {epoch_train_losses:.4f}, Validation Loss: {epoch_val_losses:.4f}, Test metric {mean_test_metric:.4f}")
-        print(' ')
+        print(f"Epoch {epoch}/{n_epochs} => "
+              f"Train Loss: {avg_train_loss:.4f}, "
+              f"Validation Loss: {avg_val_loss:.4f}, "
+              f"Test metric {mean_test_metric:.4f}\n")
     
     return train_loss_history, val_loss_history
 
 
-# def test(unet, vae, dataloader, device, num_train_timesteps, noise_scheduler, test_metric, epoch, log=None):
-#     unet.eval()  # Set the model to evaluation mode
-    
-#     decoded_samples = []
-#     test_metric_values = []  # List to store PSNR values for each image
-#     with torch.no_grad():
-#         for images, (degradations, depths) in tqdm(dataloader, desc='Test'):
-#             images = images.to(device) * 2 - 1 # mapped to (-1, 1)
-#             degradations = degradations.to(device)
-#             depths = depths.to(device)
-            
-#             latents = 0.18215 * vae.encode(images).latents
-            
-#             noise = torch.randn_like(latents)
-#             timesteps = torch.randint(0, num_train_timesteps-1, (latents.shape[0],)).long().to(device)
-#             noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
-            
-#             pred = unet(noisy_latents, timesteps, depths, degradations)
-
-#             decoded = vae.decode(pred / 0.18215).sample
-
-#             # Compute PSNR for each image in the batch and store it
-#             for orig, recon in zip(images, decoded):
-#                 test_metric_value = test_metric(orig, recon)
-#                 test_metric_values.append(test_metric_value)
-
-#             decoded_samples.append(decoded)
-    
-#     # Calculate mean PSNR for all test batches
-#     mean_test_metric = sum(test_metric_values) / len(test_metric_values)
-    
-#     if log == "mlflow":
-#         mlflow.log_metric("mean_test_metric", mean_test_metric, step=epoch)
-#     elif log == "wandb":
-#         wandb.log({"mean_test_metric": mean_test_metric, "epoch": epoch})
-
-#     return decoded_samples, mean_test_metric
 
 
-
-def test(unet, vae, dataloader, device, num_inference_steps, noise_scheduler, test_metric, epoch, log=None):
-    unet.eval()  # Set the model to evaluation mode
-    noise_scheduler.set_timesteps(num_inference_steps=num_inference_steps)
-
-    decoded_samples, noise_samples = [], []
-    test_metric_values = []  # List to store PSNR values for each image
-    with torch.no_grad():
-        for images, (degradations, depths) in tqdm(dataloader, desc='Test'):
-            images = images.to(device) * 2 - 1 # mapped to (-1, 1)
-            degradations = degradations.to(device)
-            depths = depths.to(device)
-            
-
-            # The random starting point
-            latents = torch.randn_like(degradations).to(device)
-
-            # Initialize an empty lists to store individual grids
-            grid_dict = {'samples': [], 'steps': []}
-            # Loop through the sampling timesteps
-            for i, t in tqdm(enumerate(noise_scheduler.timesteps)):
-                # Get the prediction
-                noise_pred = unet(latents, t, depths, degradations)
-
-                # Calculate what the updated sample should look like with the scheduler
-                scheduler_output = noise_scheduler.step(noise_pred, t, latents)
-
-                # Update latents
-                latents = scheduler_output.prev_sample
-
-                # Occasionally add the grid to the list
-                if i % 10 == 0 or i == len(noise_scheduler.timesteps) - 1:
-                    grid = torchvision.utils.make_grid(latents, nrow=4).permute(1, 2, 0)
-                    grid_dict['samples'].append(grid.cpu().clip(-1, 1) * 0.5 + 0.5)
-                    grid_dict['steps'].append(i)
-
-            decoded = vae.decode(latents).sample
-
-            # Compute PSNR for each image in the batch and store it
-            for orig, recon in zip(images, decoded):
-                test_metric_value = test_metric(orig, recon)
-                test_metric_values.append(test_metric_value)
-
-            noise_samples.append(grid_dict)
-            decoded_samples.append(decoded)
-    
-    # Calculate mean PSNR for all test batches
-    mean_test_metric = sum(test_metric_values) / len(test_metric_values)
-    
-    if log == "mlflow":
-        mlflow.log_metric("mean_test_metric", mean_test_metric, step=epoch)
-    elif log == "wandb":
-        wandb.log({"mean_test_metric": mean_test_metric, "epoch": epoch})
-
-    return decoded_samples, mean_test_metric, noise_samples
     

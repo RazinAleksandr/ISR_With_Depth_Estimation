@@ -1,10 +1,8 @@
-# config.yaml
-
 # Parameters for initialization
 initialization:
   n_epochs: 3 #10
   val_step: 10
-  checkpoint_path: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/logdir/models"
+  model_name: "unet_depth_degr"
   seed: 17
 
 # Parameters for datasets and dataloaders
@@ -83,6 +81,6 @@ model:
   test_metric: "PSNR"
 
 logging:
-  experiment_name: "VQVae, Conditioned Unet2D, exp 0"
-  logdir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/logdir/test_samples"
+  experiment_name: "vqvae-pretrain_conditioned_unet2d-train_exp-0"
+  logdir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/logdir"
   log: "wandb" # "mlflow"
