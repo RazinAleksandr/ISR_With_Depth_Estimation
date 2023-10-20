@@ -12,6 +12,7 @@ import wandb
 
 # Local application/modules
 from src.constants.types import Dict, Any, List, Optional
+from src.utils.helpers import create_folder_if_not_exists
 
 
 def save_and_log_images(decoded_samples: torch.Tensor, noise_samples: List[Dict[str, Any]], epoch: int, 
@@ -28,15 +29,17 @@ def save_and_log_images(decoded_samples: torch.Tensor, noise_samples: List[Dict[
 
     for idx, (image, grid_dict) in enumerate(zip(decoded_samples, noise_samples)):
         # Save the image to a file
+        create_folder_if_not_exists(f'{logdir}/test_samples/epoch_{epoch}')
         file_name = f"reconstructed_epoch_{epoch}_sample_{idx}.png"
-        file_path = os.path.join(f'{logdir}/test_samples', file_name)
+        file_path = os.path.join(f'{logdir}/test_samples/epoch_{epoch}', file_name)
         vutils.save_image(image, file_path)
 
         n = len(grid_dict['samples'])
         cols = n // 2
         rows = np.ceil(n / cols).astype(int)
 
-        fig, axs = plt.subplots(rows, cols, figsize=(12, 5*rows))
+        fig, axs = plt.subplots(rows, cols, figsize=(cols * 2, rows * 2))
+
         # Flatten axs to easily iterate over it
         axs = axs.ravel()
 
@@ -53,7 +56,7 @@ def save_and_log_images(decoded_samples: torch.Tensor, noise_samples: List[Dict[
 
         # Save the concatenated image as a file
         concatenated_file_name = f"unet_epoch_{epoch}_sample_{idx}.png"
-        concatenated_file_path = os.path.join(f'{logdir}/test_samples', concatenated_file_name)
+        concatenated_file_path = os.path.join(f'{logdir}/test_samples/epoch_{epoch}', concatenated_file_name)
         plt.savefig(concatenated_file_path)
 
         # Log the concatenated image file to MLflow

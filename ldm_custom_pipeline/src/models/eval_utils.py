@@ -52,6 +52,7 @@ def eval(
             
             # The random starting point
             latents = torch.randn_like(degradations).to(device)
+            latents = latents * noise_scheduler.init_noise_sigma
 
             # Initialize an empty lists to store individual grids
             grid_dict = {'samples': [], 'steps': []}
@@ -73,6 +74,8 @@ def eval(
                     grid_dict['steps'].append(i)
 
             decoded = vae.decode(latents).sample
+            decoded = torch.clamp(decoded, -1.0, 1.0) # return image to adequat dist
+            decoded = decoded / 2 + 0.5
             # Concatenate them along the batch dimension
             decoded = torch.cat((images, decoded), 0)
 
