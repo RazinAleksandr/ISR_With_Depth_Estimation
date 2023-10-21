@@ -26,10 +26,9 @@ def save_and_log_images(decoded_samples: torch.Tensor, noise_samples: List[Dict[
     :param logdir: Directory to save the images.
     :param log: Specifies which platform to log to, options are "mlflow", "wandb" or False for no logging.
     """
-
+    create_folder_if_not_exists(f'{logdir}/test_samples/epoch_{epoch}')
     for idx, (image, grid_dict) in enumerate(zip(decoded_samples, noise_samples)):
         # Save the image to a file
-        create_folder_if_not_exists(f'{logdir}/test_samples/epoch_{epoch}')
         file_name = f"reconstructed_epoch_{epoch}_sample_{idx}.png"
         file_path = os.path.join(f'{logdir}/test_samples/epoch_{epoch}', file_name)
         vutils.save_image(image, file_path)

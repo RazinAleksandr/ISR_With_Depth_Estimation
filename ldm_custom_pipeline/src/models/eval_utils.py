@@ -77,7 +77,7 @@ def eval(
             decoded = torch.clamp(decoded, -1.0, 1.0) # return image to adequat dist
             decoded = decoded / 2 + 0.5
             # Concatenate them along the batch dimension
-            decoded = torch.cat((images, decoded), 0)
+            decoded_sample = torch.cat((images, decoded), 0)
 
             # Compute PSNR for each image in the batch and store it
             for orig, recon in zip(images, decoded):
@@ -85,7 +85,7 @@ def eval(
                 test_metric_values.append(test_metric_value)
 
             noise_samples.append(grid_dict)
-            decoded_samples.append(decoded)
+            decoded_samples.append(decoded_sample)
     
     # Calculate mean PSNR for all test batches
     mean_test_metric = sum(test_metric_values) / len(test_metric_values)
