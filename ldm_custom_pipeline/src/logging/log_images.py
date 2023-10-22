@@ -31,7 +31,9 @@ def save_and_log_images(decoded_samples: torch.Tensor, noise_samples: List[Dict[
         # Save the image to a file
         file_name = f"reconstructed_epoch_{epoch}_sample_{idx}.png"
         file_path = os.path.join(f'{logdir}/test_samples/epoch_{epoch}', file_name)
-        vutils.save_image(image, file_path)
+
+        grid = vutils.make_grid(image.detach().cpu(), nrow=image.shape[0] // 2, normalize=True, padding=2, pad_value=1)
+        vutils.save_image(grid, file_path)
 
         n = len(grid_dict['samples'])
         cols = n // 2
@@ -63,5 +65,5 @@ def save_and_log_images(decoded_samples: torch.Tensor, noise_samples: List[Dict[
             mlflow.log_artifact(file_path)
             mlflow.log_artifact(concatenated_file_path)
         elif log == "wandb":
-            wandb.log({"reconstructed_images": [wandb.Image(image, caption=file_name)], 
+            wandb.log({"reconstructed_images": [wandb.Image(grid, caption=file_name)], 
                        "concatenated_images": [wandb.Image(fig)]})

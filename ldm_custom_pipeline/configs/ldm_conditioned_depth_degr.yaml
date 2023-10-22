@@ -16,10 +16,10 @@ train_datasets:
   image_dataset: "ImageDataset"
   cond_dataset: "ConditionDataset"
   image_transform_params:
-      size: 64  #128
+      size: 128
       resize: true
   cond_transform_params:
-      size: 16 #32
+      size: 32
       resize: true
   degradation_params: {}
 
@@ -33,10 +33,10 @@ val_datasets:
   image_dataset: "ImageDataset"
   cond_dataset: "ConditionDataset"
   image_transform_params:
-      size: 64  #128
+      size: 128
       resize: true
   cond_transform_params:
-      size: 16 #32
+      size: 32
       resize: true
   degradation_params: {}
 
@@ -50,10 +50,10 @@ test_datasets:
   image_dataset: "ImageDataset"
   cond_dataset: "ConditionDataset"
   image_transform_params:
-      size: 64  #128
+      size: 128
       resize: true
   cond_transform_params:
-      size: 16 #32
+      size: 32
       resize: true
   degradation_params: {}
 

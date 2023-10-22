@@ -1,5 +1,6 @@
 # Standard libraries
 from tqdm import tqdm
+import inspect
 
 # Third-party libraries
 import mlflow
@@ -54,15 +55,24 @@ def eval(
             latents = torch.randn_like(degradations).to(device)
             latents = latents * noise_scheduler.init_noise_sigma
 
+            eta = 1
+            accepts_eta = "eta" in set(inspect.signature(noise_scheduler.step).parameters.keys())
+            extra_kwargs = {}
+            if accepts_eta:
+                extra_kwargs["eta"] = eta
+
             # Initialize an empty lists to store individual grids
             grid_dict = {'samples': [], 'steps': []}
             # Loop through the sampling timesteps
             for i, t in enumerate(noise_scheduler.timesteps):
+                latents_input = torch.cat((latents, degradations, depths), 1) 
+                latents_input = noise_scheduler.scale_model_input(latents_input, t)
+                
                 # Get the prediction
-                noise_pred = unet(latents, t, depths, degradations)
+                noise_pred = unet(latents_input, t)
 
                 # Calculate what the updated sample should look like with the scheduler
-                scheduler_output = noise_scheduler.step(noise_pred, t, latents)
+                scheduler_output = noise_scheduler.step(noise_pred, t, latents,  **extra_kwargs)
 
                 # Update latents
                 latents = scheduler_output.prev_sample

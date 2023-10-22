@@ -37,7 +37,25 @@ class SuperResDepthConditionedUnet(nn.Module):
             up_block_types=("AttnUpBlock2D", "AttnUpBlock2D", "UpBlock2D")
         )
 
-    def forward(self, x, t, depth_map, degraded_x):
+    # def forward(self, x, t, depth_map, degraded_x):
+    #     """
+    #     Forward pass of the SuperResDepthConditionedUnet model.
+        
+    #     Parameters:
+    #     x (torch.Tensor): The original image tensor.
+    #     t (torch.Tensor): The time step tensor for conditional generation.
+    #     depth_map (torch.Tensor): The depth map tensor.
+    #     degraded_x (torch.Tensor): The degraded version of the image tensor.
+        
+    #     Returns:
+    #     torch.Tensor: The super-resolved image tensor.
+    #     """
+    #     # Concatenate the depth map, degraded image, and the original image along the channel dimension
+    #     net_input = torch.cat((x, degraded_x, depth_map), 1)  
+
+    #     # Feed this to the U-Net alongside the timestep and return the prediction
+    #     return self.model(net_input, t).sample
+    def forward(self, latents, t):
         """
         Forward pass of the SuperResDepthConditionedUnet model.
         
@@ -50,8 +68,6 @@ class SuperResDepthConditionedUnet(nn.Module):
         Returns:
         torch.Tensor: The super-resolved image tensor.
         """
-        # Concatenate the depth map, degraded image, and the original image along the channel dimension
-        net_input = torch.cat((x, degraded_x, depth_map), 1)  
 
         # Feed this to the U-Net alongside the timestep and return the prediction
-        return self.model(net_input, t).sample
+        return self.model(latents, t).sample

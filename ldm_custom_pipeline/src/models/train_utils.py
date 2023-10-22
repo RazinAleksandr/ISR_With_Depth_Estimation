@@ -58,9 +58,13 @@ def train_one_batch(
 
     noise = torch.randn_like(latents)
     timesteps = torch.randint(0, num_train_timesteps-1, (latents.shape[0],)).long().to(device)
-    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+
+    latents_input = torch.cat((latents, degradations, depths), 1) 
+    noisy_latents = noise_scheduler.add_noise(latents_input, noise, timesteps)
+    # noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
         
-    pred = unet(noisy_latents, timesteps, depths, degradations)
+    # pred = unet(noisy_latents, timesteps, depths, degradations)
+    pred = unet(noisy_latents, timesteps)
     loss = loss_fn(pred, noise)
 
     opt.zero_grad()
@@ -112,9 +116,13 @@ def validate(
             
             noise = torch.randn_like(latents)
             timesteps = torch.randint(0, num_train_timesteps-1, (latents.shape[0],)).long().to(device)
-            noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
             
-            pred = unet(noisy_latents, timesteps, depths, degradations)
+            latents_input = torch.cat((latents, degradations, depths), 1) 
+            noisy_latents = noise_scheduler.add_noise(latents_input, noise, timesteps)
+            # noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+            
+            # pred = unet(noisy_latents, timesteps, depths, degradations)
+            pred = unet(noisy_latents, timesteps)
             loss = loss_fn(pred, noise)
             
             losses.append(loss.item())
