@@ -10,6 +10,7 @@ import wandb
 
 # Local application/modules
 from src.constants.types import Any, Optional, Tuple, List
+from src.constants.constants import ETA
 
 
 # Test evaluation loop
@@ -55,11 +56,10 @@ def eval(
             latents = torch.randn_like(degradations).to(device)
             latents = latents * noise_scheduler.init_noise_sigma
 
-            eta = 1
             accepts_eta = "eta" in set(inspect.signature(noise_scheduler.step).parameters.keys())
             extra_kwargs = {}
             if accepts_eta:
-                extra_kwargs["eta"] = eta
+                extra_kwargs["eta"] = ETA
 
             # Initialize an empty lists to store individual grids
             grid_dict = {'samples': [], 'steps': []}

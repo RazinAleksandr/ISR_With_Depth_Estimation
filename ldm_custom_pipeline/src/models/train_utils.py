@@ -9,6 +9,7 @@ import wandb
 
 # Local application/modules
 from src.constants.types import Any, Optional, Tuple, List
+from src.constants.constants import VAE_COEF
 from src.metrics.PSNR import PSNR
 from src.models.eval_utils import eval
 from src.models.model_utils import save_checkpoint
@@ -54,7 +55,7 @@ def train_one_batch(
     depths = depths.to(device)
         
     with torch.no_grad():
-        latents = 0.18215 * vae.encode(images).latents
+        latents = VAE_COEF * vae.encode(images).latents
 
     noise = torch.randn_like(latents)
     timesteps = torch.randint(0, num_train_timesteps-1, (latents.shape[0],)).long().to(device)
@@ -112,7 +113,7 @@ def validate(
             degradations = degradations.to(device)
             depths = depths.to(device)
             
-            latents = 0.18215 * vae.encode(images).latents
+            latents = VAE_COEF * vae.encode(images).latents
             
             noise = torch.randn_like(latents)
             timesteps = torch.randint(0, num_train_timesteps-1, (latents.shape[0],)).long().to(device)
