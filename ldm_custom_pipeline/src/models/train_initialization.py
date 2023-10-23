@@ -94,6 +94,13 @@ def initialize_datasets_and_dataloaders(
 def initialize_model_and_optimizer(
         device:                         str = 'cpu',
         lr:                             float = 1e-3,
+        lr_scheduler:                   Optional[Any] = None, # CosineAnnealingLR
+        lr_scheduler_params:            Dict[str, Any] = {
+            'T_max':                    10,
+            'eta_min':                  1e-6,
+            'last_epoch':               -1,
+            'verbose':                  False,
+        },
         unet_model_params:              Dict[str, Any] = {
             'sample_size':              32,
             'input_channels':           3,
@@ -116,6 +123,8 @@ def initialize_model_and_optimizer(
 
     :param device: Device on which the models should run. Options include 'cpu', 'cuda', etc.
     :param lr: Learning rate to be used for the optimizer.
+    :param lr_scheduler: Learning rate scheduler (epoch steps).
+    :param lr_scheduler_params: Learning rate scheduler parameters.
     :param unet_model_params: Dictionary containing parameters for initializing the U-Net model.
     :param pretrain_pipeline: Pipeline used for initializing pre-trained models.
     :param pretrain_model_id: Identifier for the pre-trained model.
@@ -125,7 +134,7 @@ def initialize_model_and_optimizer(
     :param test_metric: Metric class to use during testing.
     :param kwargs: Additional keyword arguments for future extensions or model parameters.
 
-    :return: A tuple containing initialized models (VAE, U-Net), noise scheduler, loss function, test metric, and optimizer.
+    :return: A tuple containing initialized models (VAE, U-Net), noise scheduler, loss function, test metric, optimizer and lr_scheduler.
     """
     
     # Initialize VAE
@@ -146,6 +155,9 @@ def initialize_model_and_optimizer(
     
     # Initialize optimizer
     opt = torch.optim.Adam(unet.parameters(), lr=lr)
+
+    if lr_scheduler:
+        lr_scheduler = lr_scheduler(optimizer=opt, **lr_scheduler_params)
     
-    return vae, unet, noise_scheduler, loss_fn, test_metric, opt
+    return vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler
 

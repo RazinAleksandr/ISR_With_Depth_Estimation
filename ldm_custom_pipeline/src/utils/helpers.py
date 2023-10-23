@@ -26,7 +26,8 @@ def str_to_class(exp_config: Dict[str, Any], CLASS_MAPPING: Dict[str, Any]) -> D
         exp_config[dataset]['cond_dataset'] = CLASS_MAPPING[exp_config[dataset]['cond_dataset']]
         exp_config[dataset]['transform'] = CLASS_MAPPING[exp_config[dataset]['transform']]
         exp_config[dataset]['degradation'] = CLASS_MAPPING[exp_config[dataset]['degradation']]
-        
+
+    exp_config['model']['lr_scheduler'] = CLASS_MAPPING[exp_config['model']['lr_scheduler']]        
     exp_config['model']['pretrain_pipeline'] = CLASS_MAPPING[exp_config['model']['pretrain_pipeline']]
     exp_config['model']['noise_scheduler'] = CLASS_MAPPING[exp_config['model']['noise_scheduler']]
     exp_config['model']['loss'] = CLASS_MAPPING[exp_config['model']['loss']]

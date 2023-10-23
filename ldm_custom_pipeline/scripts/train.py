@@ -52,7 +52,7 @@ def main(config_path: str, checkpoint_resume: str = None) -> None:
     test_dataloader = initialize_datasets_and_dataloaders(**exp_config['test_datasets'])
 
     # Initialize model, optimizer, and other necessary components
-    vae, unet, noise_scheduler, loss_fn, test_metric, opt = initialize_model_and_optimizer(**exp_config['model'])
+    vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler = initialize_model_and_optimizer(**exp_config['model'])
     
     # Extract training parameters
     device = exp_config['model']['device']
@@ -67,7 +67,13 @@ def main(config_path: str, checkpoint_resume: str = None) -> None:
     # If a checkpoint is provided, load model and optimizer state
     start_epoch = 0
     if checkpoint_resume:
-        start_epoch, unet, opt, _ = load_checkpoint(unet, opt, checkpoint_resume)
+        start_epoch, unet, opt, scheduler, _ = load_checkpoint(unet, opt, checkpoint_resume)
+        
+        if lr_scheduler:
+            lr_scheduler.optimizer = opt
+        else:
+            lr_scheduler = scheduler
+            
         print(f'Resume train from {start_epoch}, checkpoint_path: {checkpoint_resume}')
 
     # Initialize logging frameworks
@@ -99,7 +105,8 @@ def main(config_path: str, checkpoint_resume: str = None) -> None:
         val_step,
         start_epoch,
         test_metric,
-        num_inference_steps
+        num_inference_steps,
+        lr_scheduler=lr_scheduler
     )
 
     # Close logging sessions

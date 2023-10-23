@@ -60,12 +60,10 @@ def train_one_batch(
     noise = torch.randn_like(latents)
     timesteps = torch.randint(0, num_train_timesteps-1, (latents.shape[0],)).long().to(device)
 
-    latents_input = torch.cat((latents, degradations, depths), 1) 
-    noisy_latents = noise_scheduler.add_noise(latents_input, noise, timesteps)
-    # noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+    noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+    latents_input = torch.cat((noisy_latents, degradations, depths), 1) 
         
-    # pred = unet(noisy_latents, timesteps, depths, degradations)
-    pred = unet(noisy_latents, timesteps)
+    pred = unet(latents_input, timesteps)
     loss = loss_fn(pred, noise)
 
     opt.zero_grad()
@@ -118,12 +116,10 @@ def validate(
             noise = torch.randn_like(latents)
             timesteps = torch.randint(0, num_train_timesteps-1, (latents.shape[0],)).long().to(device)
             
-            latents_input = torch.cat((latents, degradations, depths), 1) 
-            noisy_latents = noise_scheduler.add_noise(latents_input, noise, timesteps)
-            # noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
-            
-            # pred = unet(noisy_latents, timesteps, depths, degradations)
-            pred = unet(noisy_latents, timesteps)
+            noisy_latents = noise_scheduler.add_noise(latents, noise, timesteps)
+            latents_input = torch.cat((noisy_latents, degradations, depths), 1) 
+
+            pred = unet(latents_input, timesteps)
             loss = loss_fn(pred, noise)
             
             losses.append(loss.item())
@@ -150,7 +146,8 @@ def fit(
         val_step:                   int = 400,
         start_epoch:                int = 0,
         test_metric:                Optional[Any] = PSNR,
-        num_inference_steps:        Optional[int] = None
+        num_inference_steps:        Optional[int] = None,
+        lr_scheduler:               torch.optim.lr_scheduler = None,
     ) ->                            Tuple[List[float], List[float]]:
     """
     Train, validate, and test the model for a specified number of epochs.
@@ -173,6 +170,7 @@ def fit(
     :param start_epoch: Epoch number to start training from (useful for resuming training).
     :param test_metric: Metric function used to evaluate the test performance.
     :param num_inference_steps: Number of inference steps during testing.
+    :param lr_scheduler: Learning rate scheduler (epoch steps).
 
     :return: Tuple containing lists of training and validation losses over epochs.
     """
@@ -214,6 +212,10 @@ def fit(
                 epoch_val_losses.append(val_loss)
 
             epoch_train_losses.append(train_loss)
+
+        # make learning rate step
+        if lr_scheduler:
+            lr_scheduler.step()
 
         # evaluation loop
         test_prediction, mean_test_metric, noise_samples = eval(

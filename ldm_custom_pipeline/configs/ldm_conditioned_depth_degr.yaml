@@ -61,6 +61,12 @@ test_datasets:
 model:
   device: 'cpu'
   lr: 0.001
+  lr_scheduler: "CosineAnnealingLR"
+  lr_scheduler_params:
+    T_max: 10
+    eta_min: 0.000001
+    last_epoch: -1
+    verbose: false
   unet_model_params:
     sample_size: 32
     input_channels: 3
