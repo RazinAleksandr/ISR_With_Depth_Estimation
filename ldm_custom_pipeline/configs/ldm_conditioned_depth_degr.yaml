@@ -1,7 +1,7 @@
 # Parameters for initialization
 initialization:
-  n_epochs: 3 #10
-  val_step: 10
+  n_epochs: 15
+  val_step: 75
   model_name: "unet_depth_degr"
   seed: 17
 
@@ -9,7 +9,7 @@ initialization:
 train_datasets:
   image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/trainset"
   depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/trainset"
-  batch_size: 16
+  batch_size: 64
   shuffle: true
   transform: "BaseTransform"
   degradation: "BSRDegradation"
@@ -26,7 +26,7 @@ train_datasets:
 val_datasets:
   image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/valset"
   depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/valset"
-  batch_size: 4
+  batch_size: 64
   shuffle: true
   transform: "BaseTransform"
   degradation: "BSRDegradation"
@@ -60,11 +60,12 @@ test_datasets:
 # Parameters for model and optimizer
 model:
   device: 'cpu'
-  lr: 0.001
+  lr: 0.0003
   lr_scheduler: "CosineAnnealingLR"
+  lr_scheduler_start_epoch: 5
   lr_scheduler_params:
     T_max: 10
-    eta_min: 0.0001
+    eta_min: 0.000001
     last_epoch: -1
     verbose: false
   unet_model_params:
@@ -79,10 +80,10 @@ model:
   pretrain_model_id: "CompVis/ldm-super-resolution-4x-openimages"
   noise_scheduler: "DDIMScheduler"
   scheduler_train_params: 
-    num_train_timesteps: 10
+    num_train_timesteps: 1000
     beta_schedule: "squaredcos_cap_v2"
   scheduler_inference_params:
-    num_inference_steps: 10
+    num_inference_steps: 100
   loss: "MSE"
   test_metric: "PSNR"
 
@@ -90,4 +91,4 @@ logging:
   project_name: "ldm_conditioned"
   experiment_name: "vqvae-pretrain_conditioned_unet2d-train_exp-0"
   logdir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/logdir"
-  logger: "wandb" # "mlflow"
+  logger: # "wandb" # "mlflow"

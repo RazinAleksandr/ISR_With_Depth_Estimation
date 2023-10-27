@@ -67,27 +67,29 @@ def main(config_path: str, checkpoint_resume: str = None) -> None:
     val_step = initial_params['val_step']
     model_name = initial_params['model_name']
     num_inference_steps = exp_config['model']['scheduler_inference_params']['num_inference_steps']
+    lr_scheduler_start_epoch = exp_config['model']['lr_scheduler_start_epoch']
 
     # Start training and validation loop
-    fit(n_epochs            =               n_epochs, 
-        device              =                 device, 
-        num_train_timesteps =    num_train_timesteps, 
-        unet                =                   unet, 
-        vae                 =                    vae, 
-        train_dataloader    =       train_dataloader,
-        val_dataloader      =         val_dataloader,
-        test_dataloader     =        test_dataloader,
-        opt                 =                    opt,
-        noise_scheduler     =        noise_scheduler,
-        loss_fn             =                loss_fn,
-        logdir              =                 logdir,
-        logger              =                 logger,
-        model_name          =             model_name,
-        val_step            =               val_step,
-        start_epoch         =            start_epoch,
-        test_metric         =            test_metric,
-        num_inference_steps =    num_inference_steps,
-        lr_scheduler        =           lr_scheduler)
+    fit(n_epochs                    =               n_epochs, 
+        device                      =                 device, 
+        num_train_timesteps         =    num_train_timesteps, 
+        unet                        =                   unet, 
+        vae                         =                    vae, 
+        train_dataloader            =       train_dataloader,
+        val_dataloader              =         val_dataloader,
+        test_dataloader             =        test_dataloader,
+        opt                         =                    opt,
+        noise_scheduler             =        noise_scheduler,
+        loss_fn                     =                loss_fn,
+        logdir                      =                 logdir,
+        logger                      =                 logger,
+        model_name                  =             model_name,
+        val_step                    =               val_step,
+        start_epoch                 =            start_epoch,
+        test_metric                 =            test_metric,
+        num_inference_steps         =    num_inference_steps,
+        lr_scheduler                =           lr_scheduler,
+        lr_scheduler_start_epoch    = lr_scheduler_start_epoch)
 
     # Finish logging
     if logger:

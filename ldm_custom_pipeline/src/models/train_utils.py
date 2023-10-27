@@ -139,6 +139,7 @@ def fit(
         test_metric:                Optional[Any] = PSNR,
         num_inference_steps:        Optional[int] = None,
         lr_scheduler:               _LRScheduler = None,
+        lr_scheduler_start_epoch:   int = 0,
     ) ->                            Tuple[List[float], List[float]]:
     """
     Train, validate, and test the model for a specified number of epochs.
@@ -162,6 +163,7 @@ def fit(
     :param test_metric: Metric function used to evaluate the test performance.
     :param num_inference_steps: Number of inference steps during testing.
     :param lr_scheduler: Learning rate scheduler (epoch steps).
+    :param lr_scheduler_start_epoch: From each epoch make shed steps
 
     :return: Tuple containing lists of training and validation losses over epochs.
     """
@@ -182,7 +184,7 @@ def fit(
             unet.train()
             train_loss = train_one_batch(
                 unet, vae, images, degradations, depths, opt, device,
-                num_train_timesteps, noise_scheduler, loss_fn, epoch, logger
+                num_train_timesteps, noise_scheduler, loss_fn
             )
 
             # Log train loss
@@ -210,7 +212,7 @@ def fit(
         # evaluation loop
         test_prediction, mean_test_metric, noise_samples = eval(
             unet, vae, test_dataloader, device, num_inference_steps, 
-            noise_scheduler, test_metric, epoch, logger
+            noise_scheduler, test_metric
         )
         
         # log images
@@ -224,7 +226,7 @@ def fit(
                 logger.log_image(image_key, **v)
 
         # Make learning rate step
-        if lr_scheduler:
+        if lr_scheduler and epoch >= lr_scheduler_start_epoch + 1:
             lr_scheduler.step()
 
         avg_train_loss = sum(epoch_train_losses) / len(epoch_train_losses)
