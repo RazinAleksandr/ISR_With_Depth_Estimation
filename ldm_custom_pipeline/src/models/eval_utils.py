@@ -3,28 +3,25 @@ from tqdm import tqdm
 import inspect
 
 # Third-party libraries
-import mlflow
 import torch
 import torchvision
-import wandb
 
 # Local application/modules
-from src.constants.types import Any, Optional, Tuple, List
+from src.constants.types import (Any, Optional, Tuple, List, 
+                                 Tensor, device, DataLoader, Module)
 from src.constants.constants import ETA
 
 
 # Test evaluation loop
 def eval(    
-        unet:                   torch.nn.Module,
-        vae:                    torch.nn.Module,
-        dataloader:             torch.utils.data.DataLoader,
-        device:                 torch.device,
+        unet:                   Module,
+        vae:                    Module,
+        dataloader:             DataLoader,
+        device:                 device,
         num_inference_steps:    int,
         noise_scheduler:        Any,
         test_metric:            Optional[Any],
-        epoch:                  int,
-        log:                    Optional[str] = None
-    ) ->                        Tuple[List[torch.Tensor], float, List[Any]]:
+    ) ->                        Tuple[List[Tensor], float, List[Any]]:
     """
     Test the model using a provided dataloader and compute the specified test metric.
 
@@ -35,8 +32,6 @@ def eval(
     :param num_inference_steps: Number of inference steps during testing.
     :param noise_scheduler: Scheduler used to manage and apply noise during testing.
     :param test_metric: Metric function used to evaluate the test performance. 
-    :param epoch: Current epoch number.
-    :param log: Type of logging used. Options include "mlflow", "wandb", or None.
 
     :return: Decoded samples, mean test metric value, and a list containing noise samples.
     """
@@ -100,9 +95,4 @@ def eval(
     # Calculate mean PSNR for all test batches
     mean_test_metric = sum(test_metric_values) / len(test_metric_values)
     
-    if log == "mlflow":
-        mlflow.log_metric("mean_test_metric", mean_test_metric, step=epoch)
-    elif log == "wandb":
-        wandb.log({"mean_test_metric": mean_test_metric, "epoch": epoch})
-
     return decoded_samples, mean_test_metric, noise_samples

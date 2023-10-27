@@ -70,3 +70,28 @@ def create_folder_if_not_exists(folder_path):
             print(f"Error creating folder '{folder_path}': {str(e)}")
     else:
         print(f"Folder '{folder_path}' already exists.")
+
+
+def epoch_print_info(epoch: int,
+                     n_epochs: int,
+                     lr: float,
+                     avg_train_loss: float,
+                     avg_val_loss: float,
+                     mean_test_metric: float) -> None:
+    """
+    Print information related to the training process for the current epoch.
+
+    :param epoch: Current training epoch.
+    :param n_epochs: Total number of training epochs.
+    :param lg: Learning rate.
+    :param avg_train_loss: Average training loss for the current epoch.
+    :param avg_val_loss: Average validation loss for the current epoch.
+    :param mean_test_metric: Average test metric for the current epoch.
+
+    :return: None
+    """
+    print(f"Epoch {epoch}/{n_epochs} => "
+          f"Learning rate: {lr:.4f}, "
+          f"Train Loss: {avg_train_loss:.4f}, "
+          f"Validation Loss: {avg_val_loss:.4f}, "
+          f"Test metric {mean_test_metric:.4f}\n")

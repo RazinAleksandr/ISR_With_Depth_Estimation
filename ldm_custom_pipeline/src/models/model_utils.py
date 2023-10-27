@@ -5,14 +5,15 @@ import os
 import torch
 
 # Local application/modules
-from src.constants.types import Optional, Tuple
+from src.constants.types import (Optional, Tuple, Any, 
+                                 Optimizer, Module, _LRScheduler)
 
 
 def save_checkpoint(
         epoch:          int, 
-        model:          torch.nn.Module, 
-        optimizer:      torch.optim.Optimizer, 
-        scheduler:      Optional[torch.optim.lr_scheduler._LRScheduler], 
+        model:          Module, 
+        optimizer:      Optimizer, 
+        scheduler:      Optional[_LRScheduler], 
         loss:           float, 
         filename:       str
     ) ->                None:
@@ -39,13 +40,12 @@ def save_checkpoint(
     torch.save(checkpoint, filename)
 
 
-
 def load_checkpoint(
-        model:      torch.nn.Module, 
-        optimizer:  torch.optim.Optimizer, 
-        scheduler:  Optional[torch.optim.lr_scheduler._LRScheduler], 
+        model:      Module, 
+        optimizer:  Optimizer, 
+        scheduler:  Optional[_LRScheduler], 
         filename:   str
-    ) ->            Tuple[Optional[int], torch.nn.Module, torch.optim.Optimizer, Optional[torch.optim.lr_scheduler._LRScheduler], Optional[float]]:
+    ) ->            Tuple[Optional[int], Module, Optimizer, Optional[_LRScheduler], Optional[float]]:
     """
     Load model, optimizer, scheduler, and loss states from a checkpoint.
 
@@ -62,10 +62,52 @@ def load_checkpoint(
         epoch = checkpoint['epoch']
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        if scheduler:
+            scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         loss = checkpoint['loss']
         print(f"Loaded checkpoint from epoch {epoch}")
         return epoch, model, optimizer, scheduler, loss
     else:
         print("No checkpoint found.")
         return None, model, optimizer, scheduler, None
+
+
+def load_model_and_optimizer(unet: Module, 
+                             opt: Optimizer, 
+                             lr_scheduler: Any, 
+                             checkpoint_resume: str) -> Tuple[int, Module, Optimizer, Any]:
+    """
+    Load the model and optimizer state from a checkpoint if provided.
+
+    :param unet: The U-Net model.
+    :param opt: Optimizer for the model.
+    :param lr_scheduler: Learning rate scheduler for the optimizer.
+    :param checkpoint_resume: Path to the checkpoint to resume from.
+
+    :return: Tuple containing the start epoch, updated U-Net model, updated optimizer, and updated learning rate scheduler.
+    """
+    
+    start_epoch = 0
+    if checkpoint_resume:
+        start_epoch, unet, opt, scheduler, _ = load_checkpoint(unet, opt, lr_scheduler, checkpoint_resume)
+        
+        if lr_scheduler:
+            lr_scheduler.optimizer = opt
+        else:
+            lr_scheduler = scheduler
+
+        print(f'Resume train from {start_epoch}, checkpoint_path: {checkpoint_resume}')
+
+    return start_epoch, unet, opt, lr_scheduler
+
+
+def get_lr(optimizer):
+    """
+    Get current learning rate value.
+
+    :param optimizer: Current optimizer.
+    
+    :return: Learning rate value.
+    """
+    for param_group in optimizer.param_groups:
+        return param_group['lr']

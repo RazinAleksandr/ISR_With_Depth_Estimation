@@ -1,22 +1,17 @@
 # Standard libraries
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 
 # Third-party libraries
 import torch
 import torchvision.utils as vutils
 
-import mlflow
-import wandb
-
 # Local application/modules
-from src.constants.types import Dict, Any, List, Optional
+from src.constants.types import Dict, Any, List, Tensor
 from src.utils.helpers import create_folder_if_not_exists
 
 
-def save_and_log_images(decoded_samples: torch.Tensor, noise_samples: List[Dict[str, Any]], epoch: int, 
-                        logdir: str, log: Optional[str] = False) -> None:
+def save_and_log_images(decoded_samples: Tensor, noise_samples: List[Dict[str, Any]], epoch: int, 
+                        logdir: str) -> None:
     """
     Save decoded and noise samples to disk and log them to specified platform.
 
@@ -24,46 +19,64 @@ def save_and_log_images(decoded_samples: torch.Tensor, noise_samples: List[Dict[
     :param noise_samples: List containing dictionaries with noise sample data.
     :param epoch: Current epoch.
     :param logdir: Directory to save the images.
-    :param log: Specifies which platform to log to, options are "mlflow", "wandb" or False for no logging.
     """
-    create_folder_if_not_exists(f'{logdir}/test_samples/epoch_{epoch}')
-    for idx, (image, grid_dict) in enumerate(zip(decoded_samples, noise_samples)):
-        # Save the image to a file
-        file_name = f"reconstructed_epoch_{epoch}_sample_{idx}.png"
-        file_path = os.path.join(f'{logdir}/test_samples/epoch_{epoch}', file_name)
+    create_folder_if_not_exists(f'{logdir}/test_samples')
+    final_grid_images, final_grid_noises = [], []
+    for image, grid_dict in zip(decoded_samples, noise_samples):
+        targets = image[:image.shape[0]//2, :, :, :]
+        predictions = image[image.shape[0]//2:, :, :, :]
 
-        grid = vutils.make_grid(image.detach().cpu(), nrow=image.shape[0] // 2, normalize=True, padding=2, pad_value=1)
-        vutils.save_image(grid, file_path)
+        # Target / predictions decoded grid
+        final_grid_images.append(
+            torch.cat(
+                [vutils.make_grid(targets, nrow=8),
+                vutils.make_grid(predictions, nrow=8)],
+                dim=1
+                )
+                    )
+        
+        # Get images from noise_samples[i]
+        batch_list = []
+        for grid in grid_dict['samples']:
+            batch_list.append(grid.permute(2, 0, 1))  # Convert HxWxC to CxHxW for torchvision utils
+        batch_grid = torch.cat(batch_list, dim=1)
+        batch_grid = vutils.make_grid(
+            batch_grid.detach().cpu(), 
+            nrow=batch_grid.shape[0] // 2, 
+            normalize=True, 
+            padding=10, 
+            pad_value=1 # White padding
+            )
+        
+        final_grid_noises.append(batch_grid)
+    
+    # Save image predictions
+    final_grid_im = torch.cat(
+        [torch.cat(final_grid_images[:len(final_grid_images)//2], dim=1),
+        torch.cat(final_grid_images[len(final_grid_images)//2:], dim=1)],
+        dim=2
+    )
+    im_file_name = f"im-pred_epoch-{epoch}.png"
+    im_file_path = os.path.join(f'{logdir}/test_samples', im_file_name)
+    vutils.save_image(final_grid_im, im_file_path)
 
-        n = len(grid_dict['samples'])
-        cols = n // 2
-        rows = np.ceil(n / cols).astype(int)
+    # Save noise predictions
+    final_grid_n = torch.cat(final_grid_noises, dim=2)
+    n_file_name = f"noise-pred_epoch-{epoch}.png"
+    n_file_path = os.path.join(f'{logdir}/test_samples', n_file_name)
+    vutils.save_image(final_grid_n, n_file_path)
 
-        fig, axs = plt.subplots(rows, cols, figsize=(cols * 2, rows * 2))
+    image_logger_input = {
+        "image_predictions": {
+            "image": final_grid_im,
+            "caption": im_file_name,
+            "file_path": im_file_path
+        },
+        "noise_predictions": {
+            "image": final_grid_n,
+            "caption": n_file_name,
+            "file_path": n_file_path
+        }
+    }
 
-        # Flatten axs to easily iterate over it
-        axs = axs.ravel()
-
-        for i in range(n):
-            axs[i].imshow(grid_dict['samples'][i])
-            axs[i].set_title(f"Current x (step {grid_dict['steps'][i]})")
-            axs[i].axis('off')  # Optional: to turn off axis ticks and labels
-
-        # If there are any extra axes, we should turn them off.
-        for j in range(n, rows * cols):
-            axs[j].axis('off')
-
-        plt.tight_layout()
-
-        # Save the concatenated image as a file
-        concatenated_file_name = f"unet_epoch_{epoch}_sample_{idx}.png"
-        concatenated_file_path = os.path.join(f'{logdir}/test_samples/epoch_{epoch}', concatenated_file_name)
-        plt.savefig(concatenated_file_path)
-
-        # Log the concatenated image file to MLflow
-        if log == "mlflow":
-            mlflow.log_artifact(file_path)
-            mlflow.log_artifact(concatenated_file_path)
-        elif log == "wandb":
-            wandb.log({"reconstructed_images": [wandb.Image(grid, caption=file_name)], 
-                       "concatenated_images": [wandb.Image(fig)]})
+    return image_logger_input

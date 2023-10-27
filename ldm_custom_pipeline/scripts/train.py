@@ -2,20 +2,16 @@
 import click
 import yaml
 
-# Third-party libraries
-import mlflow
-import wandb
-
 # Local modules and functions
 from src.constants.classes import CLASS_MAPPING
 from src.utils.helpers import str_to_class, set_seed
-from src.models.model_utils import load_checkpoint
+from src.models.model_utils import load_model_and_optimizer
 from src.models.train_initialization import (initialize_parameters, 
                                              initialize_logfolders, 
                                              initialize_datasets_and_dataloaders, 
-                                             initialize_model_and_optimizer)
+                                             initialize_model_and_optimizer,
+                                             initialize_logger)
 from src.models.train_utils import fit
-
 
 
 @click.command()
@@ -54,66 +50,48 @@ def main(config_path: str, checkpoint_resume: str = None) -> None:
     # Initialize model, optimizer, and other necessary components
     vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler = initialize_model_and_optimizer(**exp_config['model'])
     
+    # Initialize logger
+    logger = initialize_logger(exp_config['logging'])
+    
+    # If checkpoint path is provided -> resume train with loaded parameters/ weights and etc.
+    start_epoch, unet, opt, lr_scheduler = load_model_and_optimizer(unet, opt, lr_scheduler, checkpoint_resume)
+
+    # Log initial parameters of experiment
+    if logger:
+        logger.log_params(initial_params)
+
     # Extract training parameters
     device = exp_config['model']['device']
     num_train_timesteps = exp_config['model']['scheduler_train_params']['num_train_timesteps']
     n_epochs = initial_params['n_epochs']
-    exp_name = exp_config['logging']['experiment_name']
-    log = exp_config['logging']['log']
     val_step = initial_params['val_step']
     model_name = initial_params['model_name']
     num_inference_steps = exp_config['model']['scheduler_inference_params']['num_inference_steps']
-    
-    # If a checkpoint is provided, load model and optimizer state
-    start_epoch = 0
-    if checkpoint_resume:
-        start_epoch, unet, opt, scheduler, _ = load_checkpoint(unet, opt, checkpoint_resume)
-        
-        if lr_scheduler:
-            lr_scheduler.optimizer = opt
-        else:
-            lr_scheduler = scheduler
-            
-        print(f'Resume train from {start_epoch}, checkpoint_path: {checkpoint_resume}')
-
-    # Initialize logging frameworks
-    if log == "mlflow":
-        mlflow.start_run()
-        mlflow.log_params(initial_params)
-    elif log == "wandb":
-        wandb.init(project="ldm_conditioned", name=exp_name)
-        wandb.config.update(exp_config)
-        wandb.watch([unet, vae], log="all")
-
 
     # Start training and validation loop
-    fit(
-        n_epochs, 
-        device, 
-        num_train_timesteps, 
-        unet, 
-        vae, 
-        train_dataloader,
-        val_dataloader,
-        test_dataloader,
-        opt,
-        noise_scheduler,
-        loss_fn,
-        logdir,
-        log,
-        model_name,
-        val_step,
-        start_epoch,
-        test_metric,
-        num_inference_steps,
-        lr_scheduler=lr_scheduler
-    )
+    fit(n_epochs            =               n_epochs, 
+        device              =                 device, 
+        num_train_timesteps =    num_train_timesteps, 
+        unet                =                   unet, 
+        vae                 =                    vae, 
+        train_dataloader    =       train_dataloader,
+        val_dataloader      =         val_dataloader,
+        test_dataloader     =        test_dataloader,
+        opt                 =                    opt,
+        noise_scheduler     =        noise_scheduler,
+        loss_fn             =                loss_fn,
+        logdir              =                 logdir,
+        logger              =                 logger,
+        model_name          =             model_name,
+        val_step            =               val_step,
+        start_epoch         =            start_epoch,
+        test_metric         =            test_metric,
+        num_inference_steps =    num_inference_steps,
+        lr_scheduler        =           lr_scheduler)
 
-    # Close logging sessions
-    if log == "mlflow":
-        mlflow.finish()
-    elif log == "wandb":
-        wandb.finish()
+    # Finish logging
+    if logger:
+        logger.finish()
 
 
 if __name__ == "__main__":

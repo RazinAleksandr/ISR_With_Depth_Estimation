@@ -7,6 +7,7 @@ from diffusers import LDMSuperResolutionPipeline, DDIMScheduler
 # Local application/modules
 from models.SuperResDepthConditionedUnet import SuperResDepthConditionedUnet
 from src.data.datasets import ImageDataset, ConditionDataset, CombinedDataset
+from src.logging.CustomLogger import CustomLogger
 from src.metrics.PSNR import PSNR
 from src.utils.degradations import BSRDegradation
 from src.utils.helpers import create_folder_if_not_exists
@@ -32,23 +33,6 @@ def initialize_parameters(n_epochs=10, val_step=100, model_name='model.pth', see
         'seed': seed,
     }
     return config
-
-
-def initialize_logfolders(logdir_path: str, experiment_name: str) -> str:
-    """
-    Initialize logging directories for saving models and test samples.
-    
-    :param logdir_path: Base directory for all logging.
-    :param experiment_name: Name of the experiment for the current run.
-    
-    :return: Path to the specific log directory for the current experiment.
-    """
-    logdir = f'{logdir_path}/{experiment_name}'
-
-    create_folder_if_not_exists(f'{logdir}/models')
-    create_folder_if_not_exists(f'{logdir}/test_samples')
-    
-    return logdir
 
 
 def initialize_datasets_and_dataloaders(
@@ -160,4 +144,40 @@ def initialize_model_and_optimizer(
         lr_scheduler = lr_scheduler(optimizer=opt, **lr_scheduler_params)
     
     return vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler
+
+
+def initialize_logfolders(logdir_path: str, experiment_name: str) -> str:
+    """
+    Initialize logging directories for saving models and test samples.
+    
+    :param logdir_path: Base directory for all logging.
+    :param experiment_name: Name of the experiment for the current run.
+    
+    :return: Path to the specific log directory for the current experiment.
+    """
+    logdir = f'{logdir_path}/{experiment_name}'
+
+    create_folder_if_not_exists(f'{logdir}/models')
+    create_folder_if_not_exists(f'{logdir}/test_samples')
+    
+    return logdir
+
+
+def initialize_logger(log_config: Dict[str, Any]) -> CustomLogger:
+    """
+    Initialize the CustomLogger with the specified backend.
+    
+    :param exp_config: Configuration dictionary with logging details.
+    
+    :return: An instance of CustomLogger.
+    """
+    # Extract logger and experiment_name or use None if not available
+    backend = log_config.get('logger', None)
+    if backend and backend.lower() == "none":
+        return None
+
+    project_name = log_config.get('project_name', None)
+    experiment_name = log_config.get('experiment_name', None)
+
+    return CustomLogger(backend=backend, project_name=project_name, exp_name=experiment_name)
 
