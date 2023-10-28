@@ -14,6 +14,25 @@ from src.models.train_initialization import (initialize_parameters,
 from src.models.train_utils import fit
 
 
+def initialization(logdir_path, experiment_name, **params):
+    # Initialize parameters from the configuration
+    initial_params = initialize_parameters(**params)
+    
+    # Create directories for logging outputs
+    logdir = initialize_logfolders(logdir_path, experiment_name)
+
+    return initial_params, logdir
+
+def get_loaders(**params):
+    assert len(params.keys()) == 3, "train_datasets, val_datasets, test_datasets"
+    
+    dataloaders = []
+    for dataset in params.keys():
+        dataloaders.append( initialize_datasets_and_dataloaders(**params[dataset]) )
+
+    return dataloaders
+
+
 @click.command()
 @click.option('--config_path', default='config.yaml', help='Path to the configuration YAML file.')
 @click.option('--checkpoint_resume', default=None, help='Path to the checkpoint.')
@@ -33,19 +52,14 @@ def main(config_path: str, checkpoint_resume: str = None) -> None:
     # Substitute string class names from config to actual classes
     exp_config = str_to_class(exp_config, CLASS_MAPPING)
 
-    # Initialize parameters from the configuration
-    initial_params = initialize_parameters(**exp_config['initialization'])
-    
-    # Create directories for logging outputs
-    logdir = initialize_logfolders(exp_config['logging']['logdir'], exp_config['logging']['experiment_name'])
+    # Initialize parameters, log folders
+    initial_params, logdir = initialization(exp_config['logging']['logdir'], exp_config['logging']['experiment_name'], **exp_config['initialization'])
 
     # Set random seed for reproducibility
     set_seed(initial_params['seed'])
 
-    # Initialize data loaders
-    train_dataloader = initialize_datasets_and_dataloaders(**exp_config['train_datasets'])
-    val_dataloader = initialize_datasets_and_dataloaders(**exp_config['val_datasets'])
-    test_dataloader = initialize_datasets_and_dataloaders(**exp_config['test_datasets'])
+    # Initialize dataloaders
+    train_dataloader, val_dataloader, test_dataloader = get_loaders(**exp_config["datasets"])
 
     # Initialize model, optimizer, and other necessary components
     vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler = initialize_model_and_optimizer(**exp_config['model'])

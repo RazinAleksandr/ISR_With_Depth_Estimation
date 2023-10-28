@@ -236,7 +236,7 @@ def fit(
         if model_name and (avg_val_loss < best_loss):
             best_loss = avg_val_loss
             save_checkpoint(
-                epoch, unet, opt, avg_val_loss,
+                epoch, unet, opt, lr_scheduler, avg_val_loss,
                 os.path.join(f'{logdir}/models', f'{model_name}-{epoch}_epoch.pth')
             )
 
