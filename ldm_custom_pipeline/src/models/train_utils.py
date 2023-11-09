@@ -47,8 +47,8 @@ def train_one_batch(
     """
 
     images = images.to(device) * 2 - 1
-    degradations = degradations.to(device)
-    depths = depths.to(device)
+    degradations = degradations.to(device) * 2 - 1
+    depths = depths.to(device) * 2 - 1
         
     with torch.no_grad():
         latents = VAE_COEF * vae.encode(images).latents
@@ -99,8 +99,8 @@ def validate(
     with torch.no_grad():
         for images, (degradations, depths) in tqdm(dataloader, desc="Validation"):
             images = images.to(device) * 2 - 1
-            degradations = degradations.to(device)
-            depths = depths.to(device)
+            degradations = degradations.to(device) * 2 - 1
+            depths = depths.to(device) * 2 - 1
             
             latents = VAE_COEF * vae.encode(images).latents
             
