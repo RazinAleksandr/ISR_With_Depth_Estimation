@@ -13,7 +13,7 @@ class SuperResDepthConditionedUnet(nn.Module):
     model (nn.Module): The underlying U-Net architecture used for the super-resolution task.
     """
 
-    def __init__(self, sample_size=28, input_channels=3, layers_per_block=2, block_out_channels=(32, 64, 64)):
+    def __init__(self, sample_size=28, input_channels=3, layers_per_block=2, block_out_channels=(32, 64, 64), addition_condition=1):
         """
         Initializes the SuperResDepthConditionedUnet model.
         
@@ -28,7 +28,7 @@ class SuperResDepthConditionedUnet(nn.Module):
         # Assuming depth map has 1 channel and degraded image has the same channels as the input
         self.model = UNet2DModel(
             sample_size=sample_size,                # the target image resolution
-            in_channels=input_channels * 2 + 1,     # Input channels: image + degraded image + depth map
+            in_channels=input_channels * 2 + addition_condition,     # Input channels: image + degraded image + depth map
             out_channels=input_channels,            # the number of output channels
             layers_per_block=layers_per_block,      # how many ResNet layers to use per UNet block
             block_out_channels=block_out_channels,

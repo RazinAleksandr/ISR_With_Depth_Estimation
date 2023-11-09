@@ -143,7 +143,7 @@ def initialize_model_and_optimizer(
     if lr_scheduler:
         lr_scheduler = lr_scheduler(optimizer=opt, **lr_scheduler_params)
     
-    return vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler
+    return vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler, sr_pipe
 
 
 def initialize_logfolders(logdir_path: str, experiment_name: str) -> str:

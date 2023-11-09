@@ -77,6 +77,7 @@ model:
       - 32
       - 64
       - 64
+    addition_condition: 1
   pretrain_pipeline: "LDMSuperResolutionPipeline"
   pretrain_model_id: "CompVis/ldm-super-resolution-4x-openimages"
   noise_scheduler: "DDIMScheduler"

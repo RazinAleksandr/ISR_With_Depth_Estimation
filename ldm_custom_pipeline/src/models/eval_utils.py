@@ -1,5 +1,5 @@
 # Standard libraries
-from tqdm import tqdm
+from tqdm.notebook import tqdm
 import inspect
 
 # Third-party libraries
@@ -44,8 +44,8 @@ def eval(
     with torch.no_grad():
         for images, (degradations, depths) in tqdm(dataloader, desc='Test'):
             images = images.to(device) # * 2 - 1 # mapped to (-1, 1) # we sample from normal distr, so it is not necessary
-            degradations = degradations.to(device)
-            depths = depths.to(device)
+            degradations = degradations.to(device) * 2 - 1
+            depths = depths.to(device) * 2 - 1
             
             # The random starting point
             latents = torch.randn_like(degradations).to(device)
