@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 
 # Local application/modules
 from src.constants.types import Optional, Any, Tuple
+from src.constants.constants import NUM_TRAIN_SAMPLES
 
 
 class ImageDataset(Dataset):
@@ -21,7 +22,8 @@ class ImageDataset(Dataset):
         self.image_dir = image_dir
         self.transform = transform
         self.file_names = sorted([os.path.splitext(f)[0] for f in os.listdir(image_dir) if f.endswith('.jpg')])
-    
+        self.file_names = self.file_names[:NUM_TRAIN_SAMPLES]
+
     def __len__(self) -> int:
         return len(self.file_names)
     
@@ -53,7 +55,8 @@ class ConditionDataset(Dataset):
         self.degradation = degradation
         
         self.file_names = sorted([os.path.splitext(f)[0] for f in os.listdir(depth_dir) if f.endswith('.png')])
-    
+        self.file_names = self.file_names[:NUM_TRAIN_SAMPLES]
+
     def __len__(self) -> int:
         return len(self.file_names)
     
