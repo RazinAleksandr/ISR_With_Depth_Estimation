@@ -1,6 +1,6 @@
 # Standard libraries
 import os
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 
 # Third-party libraries
 import torch

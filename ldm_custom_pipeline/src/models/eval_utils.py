@@ -1,5 +1,5 @@
 # Standard libraries
-from tqdm.notebook import tqdm
+from tqdm import tqdm
 import inspect
 
 # Third-party libraries
