@@ -10,15 +10,15 @@
 
   , "path": {
     "root": "superresolution"            // "denoising" | "superresolution" | "dejpeg"
-    , "pretrained_netG": "model_zoo/2200_G.pth"      // path of pretrained model. We fine-tune X3/X4/X8 models from X2 model, so that `G_optimizer_lr` and `G_scheduler_milestones` can be halved to save time.
-    , "pretrained_netE": "model_zoo/2200_E.pth"      // path of pretrained model
+    , "pretrained_netG": "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/SwinIR_with_depth/model_zoo/001_classicalSR_DIV2K_s48w8_SwinIR-M_x2.pth"      // path of pretrained model. We fine-tune X3/X4/X8 models from X2 model, so that `G_optimizer_lr` and `G_scheduler_milestones` can be halved to save time.
+    , "pretrained_netE": null // "model_zoo/2200_E.pth"      // path of pretrained model
   }
 
   , "datasets": {
     "train": {
       "name": "train_dataset"           // just name
       , "dataset_type": "sr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
-      , "dataroot_H": "datasets/trainsets/HR"// path of H training dataset. DIV2K (800 training images)
+      , "dataroot_H": "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/trainset"// path of H training dataset. DIV2K (800 training images)
       , "dataroot_L": null              // path of L training dataset
 
       , "H_size": 96                   // 96/144|192/384 | 128/192/256/512. LR patch size is set to 48 or 64 when compared with RCAN or RRDB.
@@ -30,7 +30,7 @@
     , "test": {
       "name": "test_dataset"            // just name
       , "dataset_type": "sr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
-      , "dataroot_H": "datasets/testsets/HR"  // path of H testing dataset
+      , "dataroot_H": "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/testset"  // path of H testing dataset
       , "dataroot_L": null              // path of L testing dataset
 
     }
@@ -48,7 +48,7 @@
     "train": {
       "name": "depth_train_dataset"           // just name
       , "dataset_type": "sr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
-      , "dataroot_H": "datasets/depth_estimation_datasets/trainsets/HR"// path of H training dataset. DIV2K (800 training images)
+      , "dataroot_H": "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/trainset"// path of H training dataset. DIV2K (800 training images)
       , "dataroot_L": null              // path of L training dataset
 
       , "H_size": 96                   // 96/144|192/384 | 128/192/256/512. LR patch size is set to 48 or 64 when compared with RCAN or RRDB.
@@ -60,7 +60,7 @@
     , "test": {
       "name": "depth_test_dataset"            // just name
       , "dataset_type": "sr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
-      , "dataroot_H": "datasets/depth_estimation_datasets/testsets/HR"  // path of H testing dataset
+      , "dataroot_H": "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/testset"  // path of H testing dataset
       , "dataroot_L": null              // path of L testing dataset
 
     }

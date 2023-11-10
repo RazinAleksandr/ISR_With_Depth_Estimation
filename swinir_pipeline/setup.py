@@ -1,19 +1,19 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='ldm_custom_pipeline',
+    name='swinir_pipeline',
     version='0.1.0',
     description='A brief description of your project',
     author='Aleksandr Razin',
-    author_email='razin.x.alekd@google.com',
+    author_email='razin.x.aleks@google.com',
     url='pass',
     packages=find_packages(),
     install_requires=[
         'torch',
-        'torchvision',
-        'PILLOW',
-        'diffusers',
-        'transformers',
+        #'torchvision',
+        #'PILLOW',
+        #'diffusers',
+        #'transformers',
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

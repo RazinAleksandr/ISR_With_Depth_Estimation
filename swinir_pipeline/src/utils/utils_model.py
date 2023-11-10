@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import torch
-from utils_ import utils_image as util
 import re
 import glob
 import os
+
+from swinir_pipeline.src.utils import utils_image as util
 
 
 '''

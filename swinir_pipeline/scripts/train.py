@@ -1,10 +1,8 @@
 import os.path
 import math
 import argparse
-import time
 import random
 import numpy as np
-from collections import OrderedDict
 import logging
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
@@ -13,30 +11,15 @@ import torch
 import warnings
 warnings.filterwarnings("ignore")
 
-from utils_ import utils_logger
-from utils_ import utils_image as util
-from utils_ import utils_option as option
-from utils_.utils_dist import get_dist_info, init_dist
+from swinir_pipeline.src.utils import utils_logger
+from swinir_pipeline.src.utils import utils_image as util
+from swinir_pipeline.src.utils import utils_option as option
+from swinir_pipeline.src.utils.utils_dist import get_dist_info, init_dist
 
-from data.select_dataset import define_Dataset
-from models.select_model import define_Model
+from swinir_pipeline.src.data.select_dataset import define_Dataset
+from swinir_pipeline.src.models.select_model import define_Model
 
 import wandb
-
-
-
-'''
-# --------------------------------------------
-# training code for MSRResNet
-# --------------------------------------------
-# Kai Zhang (cskaizhang@gmail.com)
-# github: https://github.com/cszn/KAIR
-# --------------------------------------------
-# https://github.com/xinntao/BasicSR
-# --------------------------------------------
-# Modified by Razin Aleksandr
-# https://github.com/RazinAleksandr
-'''
 
 
 def main(json_path='options/train_msrresnet_psnr.json'):
