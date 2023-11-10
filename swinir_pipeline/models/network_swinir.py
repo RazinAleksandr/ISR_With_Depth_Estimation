@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
-from swinir_pipeline.models.DepthMapCNN import DepthMapCNN
+from models.DepthMapCNN import DepthMapCNN
 
 
 

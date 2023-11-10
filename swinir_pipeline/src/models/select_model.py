@@ -1,4 +1,4 @@
-from swinir_pipeline.src.models.model_plain import ModelPlain as M
+from src.models.model_plain import ModelPlain as M
 
 
 def define_Model(opt):

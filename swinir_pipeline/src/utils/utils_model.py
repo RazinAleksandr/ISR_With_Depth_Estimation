@@ -5,7 +5,7 @@ import re
 import glob
 import os
 
-from swinir_pipeline.src.utils import utils_image as util
+from src.utils import utils_image as util
 
 
 '''

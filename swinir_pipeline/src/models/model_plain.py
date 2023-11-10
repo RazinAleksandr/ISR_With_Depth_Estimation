@@ -4,13 +4,13 @@ import torch.nn as nn
 from torch.optim import lr_scheduler
 from torch.optim import Adam
 
-from swinir_pipeline.src.models.select_network import define_G
-from swinir_pipeline.src.models.model_base import ModelBase
-from swinir_pipeline.src.models.loss import CharbonnierLoss
-from swinir_pipeline.src.models.loss_ssim import SSIMLoss
+from src.models.select_network import define_G
+from src.models.model_base import ModelBase
+from src.models.loss import CharbonnierLoss
+from src.models.loss_ssim import SSIMLoss
 
-from swinir_pipeline.src.utils.utils_model import test_mode
-from swinir_pipeline.src.utils.utils_regularizers import regularizer_orth, regularizer_clip
+from src.utils.utils_model import test_mode
+from src.utils.utils_regularizers import regularizer_orth, regularizer_clip
 
 
 class ModelPlain(ModelBase):

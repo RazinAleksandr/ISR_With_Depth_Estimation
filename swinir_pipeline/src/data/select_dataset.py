@@ -1,4 +1,4 @@
-from swinir_pipeline.src.data.dataset_sr import DatasetSR as D
+from src.data.dataset_sr import DatasetSR as D
 
 
 def define_Dataset(dataset_opt, depth=False):

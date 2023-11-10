@@ -1,7 +1,7 @@
 import random
 import torch.utils.data as data
 
-import swinir_pipeline.src.utils.utils_image as util
+import src.utils.utils_image as util
 
 
 class DatasetSR(data.Dataset):

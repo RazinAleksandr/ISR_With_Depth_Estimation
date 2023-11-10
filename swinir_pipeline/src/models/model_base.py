@@ -2,7 +2,7 @@ import os
 import torch
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 
-from swinir_pipeline.src.utils.utils_bnorm import merge_bn, tidy_sequential
+from src.utils.utils_bnorm import merge_bn, tidy_sequential
 
 class ModelBase():
     def __init__(self, opt):

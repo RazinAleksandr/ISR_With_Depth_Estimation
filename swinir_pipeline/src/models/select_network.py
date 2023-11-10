@@ -2,7 +2,7 @@ import functools
 import torch
 from torch.nn import init
 
-from swinir_pipeline.models.network_swinir import SwinIR as net
+from models.network_swinir import SwinIR as net
 
 """
 # --------------------------------------------

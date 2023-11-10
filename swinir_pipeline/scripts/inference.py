@@ -5,13 +5,13 @@ from torch.utils.data import DataLoader
 import warnings
 warnings.filterwarnings("ignore")
 
-from swinir_pipeline.src.utils import utils_image as util
-from swinir_pipeline.src.utils import utils_option_inference as option_inference
-from swinir_pipeline.src.utils import utils_option as option
-from swinir_pipeline.src.utils.utils_dist import get_dist_info, init_dist
+from src.utils import utils_image as util
+from src.utils import utils_option_inference as option_inference
+from src.utils import utils_option as option
+from src.utils.utils_dist import get_dist_info, init_dist
 
-from swinir_pipeline.src.data.select_dataset import define_Dataset
-from swinir_pipeline.src.models.select_model import define_Model
+from src.data.select_dataset import define_Dataset
+from src.models.select_model import define_Model
 
 
 def main(json_path='configurations/swinir_sr_classical.json'):
