@@ -7,6 +7,8 @@ class DepthMapCNN(nn.Module):
 
         self.conv_depth = nn.Sequential(
             nn.Conv2d(num_in_ch, embed_dim, 3, 1, 1),
+            nn.BatchNorm2d(embed_dim),
+            nn.LeakyReLU(inplace=True),
             nn.Conv2d(embed_dim, embed_dim, 3, 1, 1),
             nn.BatchNorm2d(embed_dim),
             nn.LeakyReLU(inplace=True)

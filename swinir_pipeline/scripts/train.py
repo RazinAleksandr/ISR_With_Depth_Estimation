@@ -7,6 +7,7 @@ import logging
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 import torch
+from tqdm import tqdm
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -228,11 +229,16 @@ def main(json_path='options/train_msrresnet_psnr.json'):
       })
     im_logs, depth_logs = [], []
     
-    for epoch in range(200):  # keep running
+    total_iterations = len(train_loader)
+    n_epochs = 20
+
+    for epoch in range(n_epochs):  # keep running
         if opt['dist']:
             train_sampler.set_epoch(epoch)
             train_sampler_depth.set_epoch(epoch)
         im_logs = []
+
+        pbar = tqdm(total=total_iterations, desc=f"Epoch {epoch}/{n_epochs}")
         for i, (train_data, depth_data) in enumerate(zip(train_loader, depth_train_loader)):
             #print(train_data['L'].shape, train_data['H'].shape)
             current_step += 1
@@ -252,7 +258,8 @@ def main(json_path='options/train_msrresnet_psnr.json'):
             # -------------------------------
             model.optimize_parameters(current_step)
             
-
+            pbar.update(1)
+            
             # -------------------------------
             # 4) training information
             # -------------------------------
