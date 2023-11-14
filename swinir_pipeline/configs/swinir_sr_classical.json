@@ -32,7 +32,7 @@
       , "dataset_type": "sr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
       , "dataroot_H": "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/testset"  // path of H testing dataset
       , "dataroot_L": null              // path of L testing dataset
-
+      , "H_size": 96
     }
     , "inference": {
       "name": "inference_dataset"            // just name

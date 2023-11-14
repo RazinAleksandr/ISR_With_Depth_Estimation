@@ -217,27 +217,24 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # -------------------------------
     wandb.init(
       # Set the project where this run will be logged
-      project="SwinIR with depth estimation", 
+      project="swin_depth_feature_map", 
       # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
-      name="experiment_8", 
+      name="experiment_0", 
       # Track hyperparameters and run metadata
       config={
-      "learning_rate": 1e-4,
+      "learning_rate": 1e-5,
       "architecture": "SwinIR",
       "dataset": "HRWSI",
-      "epochs": 100,
+      "epochs": 20,
       "batch_size": 48,
       })
-    im_logs, depth_logs = [], []
     
     total_iterations = len(train_loader)
     n_epochs = 20
-    decoded_samples = []
     for epoch in range(n_epochs):  # keep running
         if opt['dist']:
             train_sampler.set_epoch(epoch)
             train_sampler_depth.set_epoch(epoch)
-        im_logs = []
 
         pbar = tqdm(total=total_iterations, desc=f"Epoch {epoch}/{n_epochs}")
         for i, (train_data, depth_data) in enumerate(zip(train_loader, depth_train_loader)):
@@ -291,7 +288,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
 
                 avg_psnr = 0.0
                 idx = 0
-
+                predictions, targets = [], []
                 for test_data, depth_data in zip(test_loader, depth_test_loader):
                     idx += 1
                     image_name_ext = os.path.basename(test_data['L_path'][0])
@@ -326,36 +323,23 @@ def main(json_path='options/train_msrresnet_psnr.json'):
 
                     avg_psnr += current_psnr
 
-                    # Log
-                    # ---------------------------
-                    # wanb log
-                    # ---------------------------
-                    decoded_sample = torch.cat((H_img, E_img), 0)
-                    decoded_samples.append(decoded_sample)
-                    # im_logs.append(wandb.Image(
-                    #   E_img,
-                    #   caption='Predicted {:s}_{:d}'.format(img_name, current_step)
-                    # ))
-                    # im_logs.append(wandb.Image(
-                    #   H_img,
-                    #   caption='Ground truth {:s}'.format(img_name)
-                    # ))
+                    # Log predictions and targets
+                    predictions.append(E_img)
+                    targets.append(H_img)
                     
 
                 avg_psnr = avg_psnr / idx
                 # ---------------------------
                 # wanb log
                 # ---------------------------
-                image_logger_input = save_and_log_images(decoded_samples, epoch, img_dir)
+                image_logger_input = save_and_log_images(predictions, targets, epoch, opt['path']['images'])
                 wandb.log({
                   "Test avg_psnr": avg_psnr, 
-                #   'Image prediction': im_logs,
                   "Image prediction": [wandb.Image(image_logger_input["image"], caption=image_logger_input["caption"])]
                   },
                   step=current_step
                   )
                 
-                decoded_samples = []    
 
                 # testing log
                 logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))

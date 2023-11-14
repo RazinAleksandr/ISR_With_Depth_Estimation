@@ -1,9 +1,7 @@
 # Standard libraries
 import os
-
-# Third-party libraries
-import torch
-import torchvision.utils as vutils
+from PIL import Image
+import numpy as np
 
 
 def create_folder_if_not_exists(folder_path):
@@ -27,7 +25,7 @@ def create_folder_if_not_exists(folder_path):
         print(f"Folder '{folder_path}' already exists.")
 
 
-def save_and_log_images(decoded_samples, epoch: int, logdir: str) -> None:
+def save_and_log_images(predictions, targets, epoch: int, logdir: str) -> None:
     """
     Save decoded and noise samples to disk and log them to specified platform.
 
@@ -36,35 +34,34 @@ def save_and_log_images(decoded_samples, epoch: int, logdir: str) -> None:
     :param logdir: Directory to save the images.
     """
     create_folder_if_not_exists(f'{logdir}/test_samples')
-    final_grid_images = []
-    for image in decoded_samples:
-        targets = image[:image.shape[0]//2, :, :, :]
-        predictions = image[image.shape[0]//2:, :, :, :]
 
-        # Target / predictions decoded grid
-        final_grid_images.append(
-            torch.cat(
-                [vutils.make_grid(targets, nrow=8),
-                vutils.make_grid(predictions, nrow=8)],
-                dim=1
-                )
-                    )
+    grid_shape=(len(predictions) // 10, 10)
     
-    # Save image predictions
-    final_grid_im = torch.cat(
-        [torch.cat(final_grid_images[:len(final_grid_images)//2], dim=1),
-        torch.cat(final_grid_images[len(final_grid_images)//2:], dim=1)],
-        dim=2
-    )
+    # Create rows of targets and predictions
+    target_rows = []
+    prediction_rows = []
+
+    for i in range(0, len(targets), grid_shape[1]):
+      target_rows.append(np.concatenate(targets[i:i + grid_shape[1]], axis=1))
+      prediction_rows.append(np.concatenate(predictions[i:i + grid_shape[1]], axis=1))
+
+      # Concatenate all rows to form the grid
+      grid_rows = []
+      for target_row, prediction_row in zip(target_rows, prediction_rows):
+        grid_rows.append(target_row)
+        grid_rows.append(prediction_row)
+    final = np.concatenate(grid_rows, axis=0)
+    final_image = Image.fromarray(final.astype('uint8'))
+
+    # Save image
     im_file_name = f"im-pred_epoch-{epoch}.png"
     im_file_path = os.path.join(f'{logdir}/test_samples', im_file_name)
-    vutils.save_image(final_grid_im, im_file_path)
+    final_image.save(im_file_path)
 
-   
     image_logger_input = {
-            "image": final_grid_im,
-            "caption": im_file_name,
-            "file_path": im_file_path
-        }
+        "image": final_image,
+        "caption": im_file_name,
+        "file_path": im_file_path
+    }
 
     return image_logger_input
