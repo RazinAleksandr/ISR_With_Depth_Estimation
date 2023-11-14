@@ -16,6 +16,7 @@ from src.utils import utils_logger
 from src.utils import utils_image as util
 from src.utils import utils_option as option
 from src.utils.utils_dist import get_dist_info, init_dist
+from src.utils.utils_log_images import save_and_log_images
 
 from src.data.select_dataset import define_Dataset
 from src.models.select_model import define_Model
@@ -231,7 +232,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     
     total_iterations = len(train_loader)
     n_epochs = 20
-
+    decoded_samples = []
     for epoch in range(n_epochs):  # keep running
         if opt['dist']:
             train_sampler.set_epoch(epoch)
@@ -325,29 +326,36 @@ def main(json_path='options/train_msrresnet_psnr.json'):
 
                     avg_psnr += current_psnr
 
+                    # Log
                     # ---------------------------
                     # wanb log
                     # ---------------------------
-                    im_logs.append(wandb.Image(
-                      E_img,
-                      caption='Predicted {:s}_{:d}'.format(img_name, current_step)
-                    ))
-                    im_logs.append(wandb.Image(
-                      H_img,
-                      caption='Ground truth {:s}'.format(img_name)
-                    ))
+                    decoded_sample = torch.cat((H_img, E_img), 0)
+                    decoded_samples.append(decoded_sample)
+                    # im_logs.append(wandb.Image(
+                    #   E_img,
+                    #   caption='Predicted {:s}_{:d}'.format(img_name, current_step)
+                    # ))
+                    # im_logs.append(wandb.Image(
+                    #   H_img,
+                    #   caption='Ground truth {:s}'.format(img_name)
+                    # ))
                     
 
                 avg_psnr = avg_psnr / idx
                 # ---------------------------
                 # wanb log
                 # ---------------------------
+                image_logger_input = save_and_log_images(decoded_samples, epoch, img_dir)
                 wandb.log({
                   "Test avg_psnr": avg_psnr, 
-                  'Image prediction': im_logs,
+                #   'Image prediction': im_logs,
+                  "Image prediction": [wandb.Image(image_logger_input["image"], caption=image_logger_input["caption"])]
                   },
                   step=current_step
                   )
+                
+                decoded_samples = []    
 
                 # testing log
                 logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
