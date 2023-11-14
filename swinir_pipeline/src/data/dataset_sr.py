@@ -1,5 +1,6 @@
 import random
 import torch.utils.data as data
+from torchvision.transforms import Resize
 
 import src.utils.utils_image as util
 
@@ -25,7 +26,11 @@ class DatasetSR(data.Dataset):
         self.sf = opt['scale'] if opt['scale'] else 4
         self.patch_size = self.opt['H_size'] if self.opt['H_size'] else 96
         self.L_size = self.patch_size // self.sf
-
+        
+        
+        self.resize_transform_H = Resize((self.patch_size, self.patch_size))
+        self.resize_transform_L = Resize((self.L_size, self.L_size))
+        
         # ------------------------------------
         # get paths of L/H
         # ------------------------------------
@@ -105,12 +110,16 @@ class DatasetSR(data.Dataset):
         # L/H pairs, HWC to CHW, numpy to tensor
         # ------------------------------------
         img_H, img_L = util.single2tensor3(img_H), util.single2tensor3(img_L)
-
+        if self.opt['phase'] == 'test':
+            img_H = self.resize_transform_H(img_H)
+            img_L = self.resize_transform_L(img_L)
         #print(img_H.shape, img_L.shape)
         #print('\n\n')
 
         if L_path is None:
             L_path = H_path
+
+        
 
         return {'L': img_L, 'H': img_H, 'L_path': L_path, 'H_path': H_path}
 

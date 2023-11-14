@@ -328,7 +328,6 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                     # ---------------------------
                     # wanb log
                     # ---------------------------
-                    wandb.log({"Test avg_psnr": avg_psnr}) 
                     im_logs.append(wandb.Image(
                       E_img,
                       caption='Predicted {:s}_{:d}'.format(img_name, current_step)
