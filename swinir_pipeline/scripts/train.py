@@ -332,7 +332,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                 # ---------------------------
                 # wanb log
                 # ---------------------------
-                image_logger_input = save_and_log_images(predictions, targets, epoch, opt['path']['images'])
+                image_logger_input = save_and_log_images(predictions, targets, current_step, opt['path']['images'])
                 wandb.log({
                   "Test avg_psnr": avg_psnr, 
                   "Image prediction": [wandb.Image(image_logger_input["image"], caption=image_logger_input["caption"])]

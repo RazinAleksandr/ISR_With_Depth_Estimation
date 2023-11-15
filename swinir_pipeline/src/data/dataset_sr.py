@@ -41,6 +41,9 @@ class DatasetSR(data.Dataset):
         if self.paths_L and self.paths_H:
             assert len(self.paths_L) == len(self.paths_H), 'L/H mismatch - {}, {}.'.format(len(self.paths_L), len(self.paths_H))
 
+        self.paths_H = sorted(self.paths_H)
+        self.paths_H = self.paths_H[:10000]
+        
     def __getitem__(self, index):
         random.seed(index)
 

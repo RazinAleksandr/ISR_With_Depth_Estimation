@@ -25,12 +25,12 @@ def create_folder_if_not_exists(folder_path):
         print(f"Folder '{folder_path}' already exists.")
 
 
-def save_and_log_images(predictions, targets, epoch: int, logdir: str) -> None:
+def save_and_log_images(predictions, targets, step: int, logdir: str) -> None:
     """
     Save decoded and noise samples to disk and log them to specified platform.
 
     :param decoded_samples: Tensor containing decoded image samples.
-    :param epoch: Current epoch.
+    :param step: Current step.
     :param logdir: Directory to save the images.
     """
     create_folder_if_not_exists(f'{logdir}/test_samples')
@@ -54,7 +54,7 @@ def save_and_log_images(predictions, targets, epoch: int, logdir: str) -> None:
     final_image = Image.fromarray(final.astype('uint8'))
 
     # Save image
-    im_file_name = f"im-pred_epoch-{epoch}.png"
+    im_file_name = f"im-pred_step-{step}.png"
     im_file_path = os.path.join(f'{logdir}/test_samples', im_file_name)
     final_image.save(im_file_path)
 
