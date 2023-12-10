@@ -22,7 +22,8 @@ class ImageDataset(Dataset):
         self.image_dir = image_dir
         self.transform = transform
         self.file_names = sorted([os.path.splitext(f)[0] for f in os.listdir(image_dir) if f.endswith('.jpg')])
-        self.file_names = self.file_names[:NUM_TRAIN_SAMPLES]
+        if NUM_TRAIN_SAMPLES:
+            self.file_names = self.file_names[:NUM_TRAIN_SAMPLES]
 
     def __len__(self) -> int:
         return len(self.file_names)
@@ -55,7 +56,8 @@ class ConditionDataset(Dataset):
         self.degradation = degradation
         
         self.file_names = sorted([os.path.splitext(f)[0] for f in os.listdir(depth_dir) if f.endswith('.png')])
-        self.file_names = self.file_names[:NUM_TRAIN_SAMPLES]
+        if NUM_TRAIN_SAMPLES:
+            self.file_names = self.file_names[:NUM_TRAIN_SAMPLES]
 
     def __len__(self) -> int:
         return len(self.file_names)

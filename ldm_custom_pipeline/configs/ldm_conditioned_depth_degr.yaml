@@ -1,16 +1,16 @@
 # Parameters for initialization
 initialization:
-  n_epochs: 15
-  val_step: 75
-  model_name: "unet_depth_degr"
+  n_epochs: 50
+  val_step: 40
+  model_name: "unet_degr"
   seed: 17
 
 # Parameters for datasets and dataloaders
 datasets:
   train_datasets:
-    image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/trainset"
-    depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/trainset"
-    batch_size: 64
+    image_dir: "/home/aleks/main/huawei/datasets/images/trainset"
+    depth_dir: "/home/aleks/main/huawei/datasets/depth_maps/trainset"
+    batch_size: 256
     shuffle: true
     transform: "BaseTransform"
     degradation: "BSRDegradation"
@@ -25,8 +25,8 @@ datasets:
     degradation_params: {}
 
   val_datasets:
-    image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/valset"
-    depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/valset"
+    image_dir: "/home/aleks/main/huawei/datasets/images/valset"
+    depth_dir: "/home/aleks/main/huawei/datasets/depth_maps/valset"
     batch_size: 64
     shuffle: true
     transform: "BaseTransform"
@@ -42,10 +42,10 @@ datasets:
     degradation_params: {}
 
   test_datasets:
-    image_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/images/testset"
-    depth_dir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/datasets/depth_maps/testset"
+    image_dir: "/home/aleks/main/huawei/datasets/images/testset"
+    depth_dir: "/home/aleks/main/huawei/datasets/depth_maps/testset"
     batch_size: 4
-    shuffle: true
+    shuffle: false
     transform: "BaseTransform"
     degradation: "BSRDegradation"
     image_dataset: "ImageDataset"
@@ -60,7 +60,7 @@ datasets:
 
 # Parameters for model and optimizer
 model:
-  device: 'cpu'
+  device: 'cuda'
   lr: 0.0003
   lr_scheduler: "CosineAnnealingLR"
   lr_scheduler_start_epoch: 5
@@ -81,7 +81,7 @@ model:
   pretrain_pipeline: "LDMSuperResolutionPipeline"
   pretrain_model_id: "CompVis/ldm-super-resolution-4x-openimages"
   noise_scheduler: "DDIMScheduler"
-  scheduler_train_params: 
+  scheduler_train_params:
     num_train_timesteps: 1000
     beta_schedule: "squaredcos_cap_v2"
   scheduler_inference_params:
@@ -91,6 +91,6 @@ model:
 
 logging:
   project_name: "ldm_conditioned"
-  experiment_name: "vqvae-pretrain_conditioned_unet2d-train_exp-0"
-  logdir: "/home/arazin/main/work/HUAWEI/ISR/ISR_With_Depth_Estimation/ldm_custom_pipeline/logdir"
-  logger: # "wandb" # "mlflow"
+  experiment_name: "full_data-vqvae-pretrain_unet2d-train_exp-0" #"vqvae-pretrain_conditioned_unet2d-train_exp-2"
+  logdir: "/home/aleks/main/huawei/ldm_logdir"
+  logger: "wandb" # "mlflow"

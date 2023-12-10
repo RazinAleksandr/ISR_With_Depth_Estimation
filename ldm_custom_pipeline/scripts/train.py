@@ -62,7 +62,8 @@ def main(config_path: str, checkpoint_resume: str = None) -> None:
     train_dataloader, val_dataloader, test_dataloader = get_loaders(**exp_config["datasets"])
 
     # Initialize model, optimizer, and other necessary components
-    vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler, _ = initialize_model_and_optimizer(**exp_config['model'])
+    # vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler, _ = initialize_model_and_optimizer(**exp_config['model'])
+    vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler = initialize_model_and_optimizer(**exp_config['model'])
     
     # Initialize logger
     logger = initialize_logger(exp_config['logging'])

@@ -1,3 +1,5 @@
+import gc
+
 # Third-party libraries
 import torch
 import torch.nn as nn
@@ -125,6 +127,10 @@ def initialize_model_and_optimizer(
     sr_pipe = pretrain_pipeline.from_pretrained(pretrain_model_id)
     vae = sr_pipe.vqvae.to(device)
     
+    # Clean cache
+    del sr_pipe
+    gc.collect()
+
     # Initialize conditional U-Net
     unet = SuperResDepthConditionedUnet(**unet_model_params).to(device)
     
@@ -143,7 +149,8 @@ def initialize_model_and_optimizer(
     if lr_scheduler:
         lr_scheduler = lr_scheduler(optimizer=opt, **lr_scheduler_params)
     
-    return vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler, sr_pipe
+    # return vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler, sr_pipe
+    return vae, unet, noise_scheduler, loss_fn, test_metric, opt, lr_scheduler
 
 
 def initialize_logfolders(logdir_path: str, experiment_name: str) -> str:

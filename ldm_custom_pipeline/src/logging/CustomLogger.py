@@ -20,7 +20,7 @@ class CustomLogger:
 
         self.backend = backend
 
-    def log_metric(self, key: str, value: float, step: Optional[int] = None) -> None:
+    def log_metric(self, key: str, value: float, step: Optional[int] = None, step_name: str ='epoch') -> None:
         """
         Log a metric value.
 
@@ -31,7 +31,7 @@ class CustomLogger:
         if self.backend == "mlflow":
             mlflow.log_metric(key, value, step=step)
         elif self.backend == "wandb":
-            wandb.log({key: value, "epoch": step})
+            wandb.log({key: value, step_name: step})
 
     def log_image(self, image_key: str, image: Any, caption: Optional[str] = None, file_path: Optional[str] = None) -> None:
         """

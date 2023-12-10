@@ -173,9 +173,9 @@ def fit(
     best_loss = float('inf')  # For checkpoint saving
 
     total_iterations = len(train_dataloader)
-    iteration = 0  # Initialize iteration counter
+    iteration = total_iterations * start_epoch   # Initialize iteration counter
     
-    for epoch in range(1 + start_epoch, n_epochs + 1 + start_epoch):
+    for epoch in range(1 + start_epoch, n_epochs + 1):
         epoch_train_losses, epoch_val_losses = [], []
         pbar = tqdm(total=total_iterations, desc=f"Epoch {epoch}/{n_epochs}")
         
@@ -189,7 +189,7 @@ def fit(
 
             # Log train loss
             if logger:
-                logger.log_metric("train_iteration_loss", train_loss, step=epoch)
+                logger.log_metric("train_iteration_loss", train_loss, step=iteration, step_name='iter')
             
             iteration += 1
             pbar.update(1)
@@ -203,7 +203,7 @@ def fit(
                 
                 # Log val loss
                 if logger:
-                    logger.log_metric("val_loss", val_loss, step=epoch)
+                    logger.log_metric("val_loss", val_loss, step=iteration, step_name='iter')
                 
                 epoch_val_losses.append(val_loss)
 
@@ -226,19 +226,25 @@ def fit(
                 logger.log_image(image_key, **v)
 
         # Make learning rate step
-        if lr_scheduler and epoch >= lr_scheduler_start_epoch + 1:
+        if lr_scheduler and epoch >= lr_scheduler_start_epoch:
             lr_scheduler.step()
 
         avg_train_loss = sum(epoch_train_losses) / len(epoch_train_losses)
         avg_val_loss = sum(epoch_val_losses) / len(epoch_val_losses)
 
         # update model checkpoint
-        if model_name and (avg_val_loss < best_loss):
-            best_loss = avg_val_loss
+        if model_name:
+            best_loss = min(best_loss, avg_val_loss)
             save_checkpoint(
                 epoch, unet, opt, lr_scheduler, avg_val_loss,
                 os.path.join(f'{logdir}/models', f'{model_name}-{epoch}_epoch.pth')
             )
+        # if model_name and (avg_val_loss < best_loss):
+        #     best_loss = avg_val_loss
+        #     save_checkpoint(
+        #         epoch, unet, opt, lr_scheduler, avg_val_loss,
+        #         os.path.join(f'{logdir}/models', f'{model_name}-{epoch}_epoch.pth')
+        #     )
 
         train_loss_history.append(avg_train_loss)
         val_loss_history.append(avg_val_loss)

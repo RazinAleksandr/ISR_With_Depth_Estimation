@@ -21,7 +21,7 @@ class DatasetSR(data.Dataset):
 
         if depth == False:
             self.n_channels = opt['n_channels'] if opt['n_channels'] else 3
-        else:
+        else:    
             self.n_channels = opt['n_channels_depth'] if opt['n_channels_depth'] else 1
         self.sf = opt['scale'] if opt['scale'] else 4
         self.patch_size = self.opt['H_size'] if self.opt['H_size'] else 96
@@ -34,21 +34,23 @@ class DatasetSR(data.Dataset):
         # ------------------------------------
         # get paths of L/H
         # ------------------------------------
-        self.paths_H = util.get_image_paths(opt['dataroot_H'])
-        self.paths_L = util.get_image_paths(opt['dataroot_L'])
+        if depth == False:
+            self.paths_H = util.get_image_paths(opt['dataroot_H'])
+            self.paths_L = util.get_image_paths(opt['dataroot_L'])
+        else:
+            self.paths_H = util.get_image_paths(opt['depth_dataroot_H'])
+            self.paths_L = util.get_image_paths(opt['depth_dataroot_L'])
 
         assert self.paths_H, 'Error: H path is empty.'
         if self.paths_L and self.paths_H:
             assert len(self.paths_L) == len(self.paths_H), 'L/H mismatch - {}, {}.'.format(len(self.paths_L), len(self.paths_H))
 
         self.paths_H = sorted(self.paths_H)
-        self.paths_H = self.paths_H[:10000]
+        # self.paths_H = self.paths_H[:10000]
         
     def __getitem__(self, index):
         random.seed(index)
 
-        #print(self.n_channels)
-        #print('\n\n')
         L_path = None
         # ------------------------------------
         # get H image
@@ -56,7 +58,6 @@ class DatasetSR(data.Dataset):
         H_path = self.paths_H[index]
         img_H = util.imread_uint(H_path, self.n_channels)
         img_H = util.uint2single(img_H)
-        #print('img_H.shape', img_H.shape)
 
         # ------------------------------------
         # modcrop
@@ -80,14 +81,11 @@ class DatasetSR(data.Dataset):
             # --------------------------------
             H, W = img_H.shape[:2]
             img_L = util.imresize_np(img_H, 1 / self.sf, True)
-        #print('img_L.shape', img_L.shape)
 
         # ------------------------------------
         # if train, get L/H patch pair
         # ------------------------------------
-        #print(self.opt['phase'])
         if self.opt['phase'] == 'train':
-            #print('YES')
             H, W, C = img_L.shape
 
             # --------------------------------
@@ -116,15 +114,33 @@ class DatasetSR(data.Dataset):
         if self.opt['phase'] == 'test':
             img_H = self.resize_transform_H(img_H)
             img_L = self.resize_transform_L(img_L)
-        #print(img_H.shape, img_L.shape)
-        #print('\n\n')
-
+        
         if L_path is None:
             L_path = H_path
-
-        
 
         return {'L': img_L, 'H': img_H, 'L_path': L_path, 'H_path': H_path}
 
     def __len__(self):
         return len(self.paths_H)
+
+
+class CombinedDataset(data.Dataset):
+    """
+    Dataset class to combine Image and Condition datasets.
+    
+    :param image_dataset: An instance of the ImageDataset.
+    :param cond_dataset: An instance of the ConditionDataset.
+    """
+    def __init__(self, image_dataset, cond_dataset):
+        self.image_dataset = image_dataset
+        self.cond_dataset = cond_dataset
+        assert len(self.image_dataset) == len(self.cond_dataset), "Datasets must be of the same size"
+
+    def __len__(self) -> int:
+        return len(self.image_dataset)
+
+    def __getitem__(self, idx: int):
+        image_data = self.image_dataset[idx]
+        depth_data = self.cond_dataset[idx]
+
+        return image_data, depth_data

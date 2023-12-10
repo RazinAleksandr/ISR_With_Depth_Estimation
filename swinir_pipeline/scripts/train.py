@@ -19,6 +19,7 @@ from src.utils.utils_dist import get_dist_info, init_dist
 from src.utils.utils_log_images import save_and_log_images
 
 from src.data.select_dataset import define_Dataset
+from src.data.dataset_sr import CombinedDataset
 from src.models.select_model import define_Model
 
 import wandb
@@ -110,7 +111,10 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # ----------------------------------------
     for phase, dataset_opt in opt['datasets'].items():
         if phase == 'train':
-            train_set = define_Dataset(dataset_opt)
+            image_set = define_Dataset(dataset_opt)
+            depth_set = define_Dataset(dataset_opt, depth=True)
+            train_set = CombinedDataset(image_set, depth_set)
+
             train_size = int(math.ceil(len(train_set) / dataset_opt['dataloader_batch_size']))
             if opt['rank'] == 0:
                 logger.info('Number of train images: {:,d}, iters: {:,d}'.format(len(train_set), train_size))
@@ -130,53 +134,18 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                                           num_workers=dataset_opt['dataloader_num_workers'],
                                           drop_last=True,
                                           pin_memory=True)
-
         elif phase == 'test':
-            test_set = define_Dataset(dataset_opt)
+            image_set = define_Dataset(dataset_opt)
+            depth_set = define_Dataset(dataset_opt, depth=True)
+            test_set = CombinedDataset(image_set, depth_set)
+
             test_loader = DataLoader(test_set, batch_size=1,
                                      shuffle=False, num_workers=1,
                                      drop_last=False, pin_memory=True)
         else:
-            #raise NotImplementedError("Phase [%s] is not recognized." % phase)
             continue
 
-    # ----------------------------------------
-    # 1) create_dataset for Depth Estimation
-    # 2) creat_dataloader for train and test
-    # ----------------------------------------
-    for phase, dataset_opt in opt['Depth_datasets'].items():
-        if phase == 'train':
-            train_set = define_Dataset(dataset_opt, depth=True)
-            train_size = int(math.ceil(len(train_set) / dataset_opt['dataloader_batch_size']))
-            if opt['rank'] == 0:
-                logger.info('Number of train images: {:,d}, iters: {:,d}'.format(len(train_set), train_size))
-            if opt['dist']:
-                train_sampler_depth = DistributedSampler(train_set, shuffle=dataset_opt['dataloader_shuffle'], drop_last=True, seed=seed)
-                depth_train_loader = DataLoader(train_set,
-                                          batch_size=dataset_opt['dataloader_batch_size']//opt['num_gpu'],
-                                          shuffle=False,
-                                          num_workers=dataset_opt['dataloader_num_workers']//opt['num_gpu'],
-                                          drop_last=True,
-                                          pin_memory=True,
-                                          sampler=train_sampler_depth)
-            else:
-                depth_train_loader = DataLoader(train_set,
-                                          batch_size=dataset_opt['dataloader_batch_size'],
-                                          shuffle=dataset_opt['dataloader_shuffle'],
-                                          num_workers=dataset_opt['dataloader_num_workers'],
-                                          drop_last=True,
-                                          pin_memory=True)
-
-        elif phase == 'test':
-            test_set = define_Dataset(dataset_opt, depth=True)
-            depth_test_loader = DataLoader(test_set, batch_size=1,
-                                     shuffle=False, num_workers=1,
-                                     drop_last=False, pin_memory=True)
-        else:
-            #raise NotImplementedError("Phase [%s] is not recognized." % phase)
-            continue
     
-
     '''
     # ----------------------------------------
     # Step--3 (initialize model)
@@ -185,17 +154,6 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     model = define_Model(opt)
     model.init_train()
 
-    #########################FREEZE#########################
-    print('#'*100)
-    total_params  = sum(p.numel() for p in model.netG.parameters() if p.requires_grad)  
-    print(f'Total parameters number: {total_params}')
-    print('Trainable parameters:')
-    for i, (name, param) in enumerate(model.netG.named_parameters()):
-        if i <= 487:
-            param.requires_grad = False
-        else:
-            print(name)
-            param.requires_grad = True
     total_params  = sum(p.numel() for p in model.netG.parameters() if p.requires_grad)  
     print(f'Trainable parameters number: {total_params}')
     print('#'*100)
@@ -216,29 +174,29 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # define wanb
     # -------------------------------
     wandb.init(
-      # Set the project where this run will be logged
-      project="swin_depth_feature_map", 
-      # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
-      name="experiment_0", 
-      # Track hyperparameters and run metadata
-      config={
-      "learning_rate": 1e-5,
-      "architecture": "SwinIR",
-      "dataset": "HRWSI",
-      "epochs": 20,
-      "batch_size": 48,
-      })
+        project="swin_depth_feature_map", 
+        name=opt["task"],
+        config = {
+            "batch_size": opt["datasets"]["train"]["dataloader_batch_size"], 
+            "train_H_size": opt["datasets"]["train"]["H_size"],
+            "architecture": "SwinIR",
+            "epochs": opt["train"]["epochs"],
+            "manual_seed": opt["train"]["manual_seed"],
+            "learning_rate": opt["train"]["G_optimizer_lr"],
+            "shed_steps": opt["train"]["G_scheduler_milestones"],
+            "shed_gamma": opt["train"]["G_scheduler_gamma"],
+            }
+        )
     
     total_iterations = len(train_loader)
-    n_epochs = 20
-    for epoch in range(n_epochs):  # keep running
+    n_epochs = opt["train"]["epochs"]
+    for epoch in range(n_epochs):
         if opt['dist']:
             train_sampler.set_epoch(epoch)
             train_sampler_depth.set_epoch(epoch)
 
         pbar = tqdm(total=total_iterations, desc=f"Epoch {epoch}/{n_epochs}")
-        for i, (train_data, depth_data) in enumerate(zip(train_loader, depth_train_loader)):
-            #print(train_data['L'].shape, train_data['H'].shape)
+        for i, (train_data, depth_data) in enumerate(train_loader):
             current_step += 1
 
             # -------------------------------
@@ -289,11 +247,9 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                 avg_psnr = 0.0
                 idx = 0
                 predictions, targets = [], []
-                for test_data, depth_data in zip(test_loader, depth_test_loader):
+                for test_data, depth_data in test_loader:
                     idx += 1
                     image_name_ext = os.path.basename(test_data['L_path'][0])
-                    #image_name_ext_depth = os.path.basename(depth_data['L_path'][0])
-                    #print(image_name_ext, image_name_ext_depth)
                     img_name, ext = os.path.splitext(image_name_ext)
 
                     img_dir = os.path.join(opt['path']['images'], img_name)

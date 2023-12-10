@@ -22,6 +22,7 @@ def save_and_log_images(decoded_samples: Tensor, noise_samples: List[Dict[str, A
     """
     create_folder_if_not_exists(f'{logdir}/test_samples')
     final_grid_images, final_grid_noises = [], []
+    
     for image, grid_dict in zip(decoded_samples, noise_samples):
         targets = image[:image.shape[0]//2, :, :, :]
         predictions = image[image.shape[0]//2:, :, :, :]

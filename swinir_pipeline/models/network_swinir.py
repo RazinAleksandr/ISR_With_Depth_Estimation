@@ -114,7 +114,7 @@ class WindowAttention(nn.Module):
         trunc_normal_(self.relative_position_bias_table, std=.02)
         self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, return_attn=False):
         """
         Args:
             x: input features with shape of (num_windows*B, N, C)
@@ -145,6 +145,11 @@ class WindowAttention(nn.Module):
         x = (attn @ v).transpose(1, 2).reshape(B_, N, C)
         x = self.proj(x)
         x = self.proj_drop(x)
+        
+        # Return attention weights if requested
+        if return_attn:
+            return x, attn
+
         return x
 
     def extra_repr(self) -> str:
@@ -239,7 +244,7 @@ class SwinTransformerBlock(nn.Module):
 
         return attn_mask
 
-    def forward(self, x, x_size):
+    def forward(self, x, x_size, return_attn=False):
         H, W = x_size
         B, L, C = x.shape
         # assert L == H * W, "input feature has wrong size"
@@ -663,13 +668,15 @@ class SwinIR(nn.Module):
             self.mean = torch.Tensor(rgb_mean).view(1, 3, 1, 1)
         else:
             self.mean = torch.zeros(1, 1, 1, 1)
+        self.mean_depth = torch.zeros(1, 1, 1, 1)
         self.upscale = upscale
         self.upsampler = upsampler
         self.window_size = window_size
 
         #####################################################################################################
         ################################### 1, shallow feature extraction ###################################
-        self.conv_first = nn.Conv2d(num_in_ch, embed_dim, 3, 1, 1)
+        self.conv_first = nn.Conv2d(num_in_ch + 1, embed_dim, 3, 1, 1)   # add +1 channel for depth map
+        self.conv_first_depth = nn.Conv2d(1, embed_dim, 3, 1, 1)   # add +1 channel for depth map
 
         #####################################################################################################
         ################################### 2, deep feature extraction ######################################
@@ -745,7 +752,7 @@ class SwinIR(nn.Module):
 
             ############################################################# add depth layers
             self.depth_features = DepthMapCNN(
-              num_in_ch=in_chans, 
+              num_in_ch=embed_dim + 1, 
               embed_dim=embed_dim
               )
 
@@ -819,38 +826,34 @@ class SwinIR(nn.Module):
         return x
 
     def forward(self, x, x_depth):
-        #print('\n\nFORWARD\n\n')
-        #print('Input', x.shape, x_depth.shape)
-
         H, W = x.shape[2:]
+        H_depth, W_depth = x_depth.shape[2:]
+
         x = self.check_image_size(x)
+        x_depth = self.check_image_size(x_depth)
 
         self.mean_x = self.mean.type_as(x)
+        self.mean_depth = self.mean_depth.type_as(x_depth)
+
         x = (x - self.mean_x) * self.img_range
+        x_depth = (x_depth - self.mean_depth) * self.img_range
+
+        # concatenate image with depth map ##############################
+        x = torch.cat((x, x_depth), dim = 1)
 
         if self.upsampler == 'pixelshuffle':
             # for classical SR
             x = self.conv_first(x)
-            #print('After shallow', x.shape, x_depth.shape)
+            # x_depth = self.conv_first_depth(x_depth)
+            # x = x * x_depth
             x = self.conv_after_body(self.forward_features(x)) + x
-            #print('After body', x.shape, x_depth.shape)
 
             # ------------------
             # depth features
             # ------------------
-            H_depth, W_depth = x_depth.shape[2:]
-            x_depth = self.check_image_size(x_depth)
-
-            self.mean_depth = self.mean.type_as(x_depth)
-            x_depth = (x_depth - self.mean_depth) * self.img_range
-            
-            #x_depth = self.depth_features(x_depth)
-            x = self.depth_features(x, x_depth)
-            #print('After depth', x.shape, x_depth.shape)
+            # x = self.depth_features(x, x_depth)
             # ------------------
             # ------------------
-
-            #x = x * x_depth # concat with depth features
             
             x = self.conv_before_upsample(x)
             x = self.conv_last(self.upsample(x))
@@ -877,7 +880,6 @@ class SwinIR(nn.Module):
         x = x / self.img_range + self.mean_x
         
         # add into return depth map
-        #return x[:, :, :H*self.upscale, :W*self.upscale], x_depth[:, :, :H_depth*self.upscale, :W_depth*self.upscale]
         return x[:, :, :H*self.upscale, :W*self.upscale]
 
 
