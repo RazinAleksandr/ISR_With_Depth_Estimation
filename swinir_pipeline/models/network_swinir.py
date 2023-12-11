@@ -675,8 +675,8 @@ class SwinIR(nn.Module):
 
         #####################################################################################################
         ################################### 1, shallow feature extraction ###################################
-        self.conv_first = nn.Conv2d(num_in_ch + 1, embed_dim, 3, 1, 1)   # add +1 channel for depth map
-        self.conv_first_depth = nn.Conv2d(1, embed_dim, 3, 1, 1)   # add +1 channel for depth map
+        self.conv_first = nn.Conv2d(num_in_ch, embed_dim, 3, 1, 1)   # add +1 channel for depth map
+        # self.conv_first_depth = nn.Conv2d(1, embed_dim, 3, 1, 1)   # add +1 channel for depth map
 
         #####################################################################################################
         ################################### 2, deep feature extraction ######################################
@@ -751,10 +751,10 @@ class SwinIR(nn.Module):
             # for classical SR
 
             ############################################################# add depth layers
-            self.depth_features = DepthMapCNN(
-              num_in_ch=embed_dim + 1, 
-              embed_dim=embed_dim
-              )
+            # self.depth_features = DepthMapCNN(
+            #   num_in_ch=embed_dim, #+ 1, 
+            #   embed_dim=embed_dim
+            #   )
 
 
             """self.conv_before_upsample = nn.Sequential(nn.Conv2d(embed_dim, num_feat, 3, 1, 1),
@@ -839,7 +839,7 @@ class SwinIR(nn.Module):
         x_depth = (x_depth - self.mean_depth) * self.img_range
 
         # concatenate image with depth map ##############################
-        x = torch.cat((x, x_depth), dim = 1)
+        # x = torch.cat((x, x_depth), dim = 1)
 
         if self.upsampler == 'pixelshuffle':
             # for classical SR

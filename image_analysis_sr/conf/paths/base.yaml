@@ -1,0 +1,2 @@
+image_path_to_analyse: "/home/aleks/main/huawei/swin_logdir/swinir_sr_classical_fine_tuned/inferenced_images"
+log_file_path: "/home/aleks/main/huawei/swin_logdir/swinir_sr_classical_fine_tuned/analysis_result/inference_analysis.csv"

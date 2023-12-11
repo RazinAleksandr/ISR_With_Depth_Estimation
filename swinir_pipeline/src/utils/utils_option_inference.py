@@ -45,18 +45,18 @@ def parse(opt_path):
             dataset['dataroot_H'] = os.path.expanduser(dataset['dataroot_H'])
         if 'dataroot_L' in dataset and dataset['dataroot_L'] is not None:
             dataset['dataroot_L'] = os.path.expanduser(dataset['dataroot_L'])
-    # ----------------------------------------
-    # depth datasets
-    # ----------------------------------------
-    for phase, dataset in opt['Depth_datasets'].items():
-        phase = phase.split('_')[0]
-        dataset['phase'] = phase
-        dataset['scale'] = opt['scale']  # broadcast
-        dataset['n_channels'] = opt['n_channels']  # broadcast
-        if 'dataroot_H' in dataset and dataset['dataroot_H'] is not None:
-            dataset['dataroot_H'] = os.path.expanduser(dataset['dataroot_H'])
-        if 'dataroot_L' in dataset and dataset['dataroot_L'] is not None:
-            dataset['dataroot_L'] = os.path.expanduser(dataset['dataroot_L'])
+    # # ----------------------------------------
+    # # depth datasets
+    # # ----------------------------------------
+    # for phase, dataset in opt['Depth_datasets'].items():
+    #     phase = phase.split('_')[0]
+    #     dataset['phase'] = phase
+    #     dataset['scale'] = opt['scale']  # broadcast
+    #     dataset['n_channels'] = opt['n_channels']  # broadcast
+    #     if 'dataroot_H' in dataset and dataset['dataroot_H'] is not None:
+    #         dataset['dataroot_H'] = os.path.expanduser(dataset['dataroot_H'])
+    #     if 'dataroot_L' in dataset and dataset['dataroot_L'] is not None:
+    #         dataset['dataroot_L'] = os.path.expanduser(dataset['dataroot_L'])
 
     # ----------------------------------------
     # path

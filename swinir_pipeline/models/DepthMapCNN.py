@@ -19,6 +19,7 @@ class DepthMapCNN(nn.Module):
         
     def forward(self, x, x_depth):
         # out = self.conv_depth(torch.cat((x, x_depth), dim = 1))
-        out = self.conv_depth(x_depth)
+        out = self.conv_depth(x)
+        # out = self.conv_depth(x_depth)
         out = out * x_depth
         return out

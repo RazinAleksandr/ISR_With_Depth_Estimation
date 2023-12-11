@@ -12,6 +12,7 @@ from src.utils.utils_dist import get_dist_info, init_dist
 
 from src.data.select_dataset import define_Dataset
 from src.models.select_model import define_Model
+from src.data.dataset_sr import CombinedDataset
 
 
 def main(json_path='configurations/swinir_sr_classical.json'):
@@ -56,26 +57,14 @@ def main(json_path='configurations/swinir_sr_classical.json'):
     # ----------------------------------------
     for phase, dataset_opt in opt['datasets'].items():
         if phase == 'inference':
-            test_set = define_Dataset(dataset_opt)
+            image_set = define_Dataset(dataset_opt)
+            depth_set = define_Dataset(dataset_opt, depth=True)
+            test_set = CombinedDataset(image_set, depth_set)
             test_loader = DataLoader(test_set, batch_size=1,
                                      shuffle=False, num_workers=1,
                                      drop_last=False, pin_memory=True)
         else:
             continue
-
-    # ----------------------------------------
-    # 1) create_dataset for Depth Estimation
-    # 2) creat_dataloader for test
-    # ----------------------------------------
-    for phase, dataset_opt in opt['Depth_datasets'].items():
-        if phase == 'inference':
-            test_set = define_Dataset(dataset_opt, depth=True)
-            depth_test_loader = DataLoader(test_set, batch_size=1,
-                                     shuffle=False, num_workers=1,
-                                     drop_last=False, pin_memory=True)
-        else:
-            continue
-    
 
     '''
     # ----------------------------------------
@@ -85,7 +74,6 @@ def main(json_path='configurations/swinir_sr_classical.json'):
     model = define_Model(opt)
     model.init_inference()
     
-
     '''
     # ----------------------------------------
     # Step--4 (run inference)
@@ -93,7 +81,7 @@ def main(json_path='configurations/swinir_sr_classical.json'):
     '''
     print('Start inference ...')
     idx, avg_psnr = 0, 0
-    for test_data, depth_data in zip(test_loader, depth_test_loader):
+    for i, (test_data, depth_data) in enumerate(test_loader):
         idx += 1
         image_name_ext = os.path.basename(test_data['L_path'][0])
         img_name, ext = os.path.splitext(image_name_ext)
@@ -102,18 +90,23 @@ def main(json_path='configurations/swinir_sr_classical.json'):
         util.mkdir(img_dir)
 
         model.feed_data(test_data, depth_data)
-
+        
         model.test()
                     
         visuals = model.current_visuals()
+        L_img = util.tensor2uint(test_data["L"])
         E_img = util.tensor2uint(visuals['E'])
         H_img = util.tensor2uint(visuals['H'])
 
         # -----------------------
         # save estimated image E
         # -----------------------
-        save_img_path = os.path.join(img_dir, '{:s}_.png'.format(img_name))
-        util.imsave(E_img, save_img_path)
+        save_img_path_L = os.path.join(img_dir, '{:s}_degradated.png'.format(img_name))
+        save_img_path_E = os.path.join(img_dir, '{:s}_generated.png'.format(img_name))
+        save_img_path_H = os.path.join(img_dir, '{:s}_true.png'.format(img_name))
+        util.imsave(L_img, save_img_path_L)
+        util.imsave(E_img, save_img_path_E)
+        util.imsave(H_img, save_img_path_H)
 
         # -----------------------
         # calculate PSNR
