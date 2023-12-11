@@ -1,5 +1,5 @@
 {
-  "task": "swinir_sr_classical_patch48_x2_concat_input_train_full_1e-4_exp_1"               //"swinir_sr_classical_patch48_x2"     //  classical image sr for x2/x3/x4/x8. root/task/images-models-options
+  "task": "swinir_sr_depth_encoder_cat_conv"               //"swinir_sr_classical_patch48_x2"     //  classical image sr for x2/x3/x4/x8. root/task/images-models-options
   , "model": "plain"                                                                      // "plain" | "plain2" if two inputs
   , "gpu_ids": [0]                                                                        //[0,1,2,3,4,5,6,7]
   , "dist": true

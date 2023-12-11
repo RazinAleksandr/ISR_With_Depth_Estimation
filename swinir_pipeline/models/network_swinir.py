@@ -676,7 +676,8 @@ class SwinIR(nn.Module):
         #####################################################################################################
         ################################### 1, shallow feature extraction ###################################
         self.conv_first = nn.Conv2d(num_in_ch, embed_dim, 3, 1, 1)   # add +1 channel for depth map
-        # self.conv_first_depth = nn.Conv2d(1, embed_dim, 3, 1, 1)   # add +1 channel for depth map
+        self.conv_first_depth = nn.Conv2d(1, embed_dim, 3, 1, 1)   # add +1 channel for depth map
+        self.conv_combined = nn.Conv2d(embed_dim*2, embed_dim, 3, 1, 1)
 
         #####################################################################################################
         ################################### 2, deep feature extraction ######################################
@@ -844,7 +845,9 @@ class SwinIR(nn.Module):
         if self.upsampler == 'pixelshuffle':
             # for classical SR
             x = self.conv_first(x)
-            # x_depth = self.conv_first_depth(x_depth)
+            x_depth = self.conv_first_depth(x_depth)
+            x = torch.cat((x, x_depth), dim=1)
+            x = self.conv_combined(x)
             # x = x * x_depth
             x = self.conv_after_body(self.forward_features(x)) + x
 

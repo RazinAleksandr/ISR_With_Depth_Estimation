@@ -1,6 +1,6 @@
 import numpy as np
 
-from metrics import PSNRMetric, BrisqueMetric, DistanceMetrics
+from metrics import PSNRMetric, BrisqueMetric, DistanceMetrics, TorchMetrics
 
 
 class AdvancedImageAnalysis:
@@ -26,3 +26,7 @@ class AdvancedImageAnalysis:
         """Calculate the quality of a block or image using l1 l2 distances."""
         distance_calculation = DistanceMetrics()
         return distance_calculation(np.array(true), np.array(predicted))
+    
+    def torch_metrics(self, true, predicted):
+        torchmetrics_calculation = TorchMetrics()
+        return torchmetrics_calculation(np.array(true), np.array(predicted))

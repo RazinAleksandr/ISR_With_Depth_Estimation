@@ -40,6 +40,7 @@ class ImageAnalyst:
             compute_brisque=True,
             compute_tv=True,
             compute_distances=True,
+            compute_torchmetrics=True,
             save_interval=100
         ):
         """Run the image analysis in a multiprocessing environment."""
@@ -65,6 +66,7 @@ class ImageAnalyst:
                             compute_brisque,
                             compute_tv,
                             compute_distances,
+                            compute_torchmetrics,
                             save_interval,
                         ),
                     )
@@ -82,6 +84,7 @@ class ImageAnalyst:
                     compute_brisque,
                     compute_tv,
                     compute_distances,
+                    compute_torchmetrics,
                 )
         else:
             print(f"Invalid image path: {images_path}")
@@ -94,6 +97,7 @@ class ImageAnalyst:
             compute_brisque,
             compute_tv,
             compute_distances,
+            compute_torchmetrics,
             save_interval
         ):
         """Process a chunk of image paths."""
@@ -107,6 +111,7 @@ class ImageAnalyst:
                     compute_brisque,
                     compute_tv,
                     compute_distances,
+                    compute_torchmetrics,
                 )
                 self.num_processed += 1
                 if self.num_processed % save_interval == 0:
@@ -121,6 +126,7 @@ class ImageAnalyst:
             compute_brisque,
             compute_tv,
             compute_distances,
+            compute_torchmetrics,
         ):
         """Analyze an image using the specified metrics."""
         
@@ -149,6 +155,9 @@ class ImageAnalyst:
             for dist, res in distances_dict.items():
                 res.savefig(f"{os.path.join(log_dir, 'distances', filepath, filepath)}_{dist}.png")
                 plt.close(res)
+        if compute_torchmetrics:
+            self.images_dict[filepath].update(self.advanced_analysis.torch_metrics(img_pairs.get("true"), 
+                                                                                 img_pairs.get("generated")))
         
     
     def save_csv(self):

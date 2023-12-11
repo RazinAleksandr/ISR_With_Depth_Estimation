@@ -193,7 +193,6 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     for epoch in range(n_epochs):
         if opt['dist']:
             train_sampler.set_epoch(epoch)
-            train_sampler_depth.set_epoch(epoch)
 
         pbar = tqdm(total=total_iterations, desc=f"Epoch {epoch}/{n_epochs}")
         for i, (train_data, depth_data) in enumerate(train_loader):
