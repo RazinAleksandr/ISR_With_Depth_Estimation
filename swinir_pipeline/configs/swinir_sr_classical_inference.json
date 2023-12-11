@@ -18,10 +18,12 @@
     "inference": {
       "name": "inference_dataset"                                                         // just name
       , "dataset_type": "sr"                                                              // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
-      , "dataroot_H": "/home/aleks/main/huawei/datasets/images/testset"                   // path of H inference dataset
-      , "depth_dataroot_H": "/home/aleks/main/huawei/datasets/depth_maps/testset"  
+      , "dataroot_H": "/home/aleks/main/huawei/datasets/images/inferenceset"                   // path of H inference dataset
+      , "depth_dataroot_H": "/home/aleks/main/huawei/datasets/depth_maps/inferenceset"  
       , "dataroot_L": null                                                                // path of L inference dataset
       , "depth_dataroot_L": null   
+      , "H_size": 96
+    
     }
 
   }

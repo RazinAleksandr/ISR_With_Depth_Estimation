@@ -38,13 +38,6 @@
       , "depth_dataroot_L": null                                                          // path of L training dataset
       , "H_size": 256
     }
-    , "inference": {
-      "name": "inference_dataset"                                                         // just name
-      , "dataset_type": "sr"                                                              // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
-      , "dataroot_H": "datasets/inferencesets/HR"                                         // path of H inference dataset
-      , "dataroot_L": null                                                                // path of L inference dataset
-
-    }
 
   }
 
