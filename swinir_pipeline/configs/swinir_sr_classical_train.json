@@ -1,5 +1,5 @@
 {
-  "task": "swinir_sr_depth_encoder_cat_conv"               //"swinir_sr_classical_patch48_x2"     //  classical image sr for x2/x3/x4/x8. root/task/images-models-options
+  "task": "swinir_sr_depth_pixelshuffle_concat_input"               //"swinir_sr_classical_patch48_x2"     //  classical image sr for x2/x3/x4/x8. root/task/images-models-options
   , "model": "plain"                                                                      // "plain" | "plain2" if two inputs
   , "gpu_ids": [0]                                                                        //[0,1,2,3,4,5,6,7]
   , "dist": true
@@ -67,13 +67,13 @@
     , "E_decay": 0.999                                                                    // Exponential Moving Average for netG: set 0 to disable; default setting 0.999
 
     , "G_optimizer_type": "adam"                                                          // fixed, adam is enough
-    , "G_optimizer_lr": 1e-4                                                              // learning rate
+    , "G_optimizer_lr": 1e-5                                                              // learning rate
     , "G_optimizer_wd": 0                                                                 // weight decay, default 0
     , "G_optimizer_clipgrad": null                                                        // unused
     , "G_optimizer_reuse": true                                                           //
 
     , "G_scheduler_type": "MultiStepLR"                                                   // "MultiStepLR" is enough
-    , "G_scheduler_milestones": [3000, 6000, 8000, 10000]
+    , "G_scheduler_milestones": [800, 1600, 3000]
     , "G_scheduler_gamma": 0.5
 
     , "G_regularizer_orthstep": null                                                      // unused
@@ -82,8 +82,8 @@
     , "G_param_strict": true
     , "E_param_strict": true
 
-    , "checkpoint_test": 636                                                              // for testing
-    , "checkpoint_save": 1273                                                             // for saving model
+    , "checkpoint_test": 400                                                              // for testing
+    , "checkpoint_save": 800                                                             // for saving model
     , "checkpoint_print": 200                                                             // for print
   }
 }

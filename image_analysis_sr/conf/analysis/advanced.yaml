@@ -1,5 +1,5 @@
 compute_psnr: true
 compute_brisque: true
 compute_tv: false
-compute_distances: false
+compute_distances: true
 compute_torchmetrics: true

@@ -598,29 +598,6 @@ class Upsample(nn.Sequential):
             raise ValueError(f'scale {scale} is not supported. ' 'Supported scales: 2^n and 3.')
         super(Upsample, self).__init__(*m)
 
-class DepthGuidedUpsample(nn.Module):
-    def __init__(self, scale, num_feat):
-        super(DepthGuidedUpsample, self).__init__()
-        self.scale = scale
-        self.conv = nn.Conv2d(num_feat, num_feat * scale * scale, 3, 1, 1)
-        self.pixel_shuffle = nn.PixelShuffle(scale)
-        # Additional layers for processing depth map
-        self.depth_process = nn.Sequential(
-            nn.Conv2d(1, num_feat, 3, 1, 1),  # Assuming depth map has 1 channel
-            nn.ReLU(),
-            nn.Conv2d(num_feat, num_feat, 3, 1, 1),
-            nn.Sigmoid()  # Sigmoid to keep values between 0 and 1
-        )
-
-    def forward(self, x, depth_map):
-        # Process depth map
-        depth_weight = self.depth_process(depth_map)
-        # Apply depth weight to feature map
-        x_weighted = x * depth_weight
-        # Upsample
-        x_upsampled = self.conv(x_weighted)
-        x_upsampled = self.pixel_shuffle(x_upsampled)
-        return x_upsampled
 
 class UpsampleOneStep(nn.Sequential):
     """UpsampleOneStep module (the difference with Upsample is that it always only has 1conv + 1pixelshuffle)
@@ -698,9 +675,9 @@ class SwinIR(nn.Module):
 
         #####################################################################################################
         ################################### 1, shallow feature extraction ###################################
-        # self.conv_first = nn.Conv2d(num_in_ch, embed_dim, 3, 1, 1)   # add +1 channel for depth map
-        self.conv_first_combined = nn.Conv2d(num_in_ch + 1, embed_dim, 3, 1, 1)
-
+        self.conv_first = nn.Conv2d(num_in_ch, embed_dim, 3, 1, 1)   # add +1 channel for depth map
+        self.conv_first_depth = nn.Conv2d(1, embed_dim, 3, 1, 1)   # add +1 channel for depth map
+        self.conv_combined = nn.Conv2d(embed_dim*2, embed_dim, 3, 1, 1)
 
         #####################################################################################################
         ################################### 2, deep feature extraction ######################################
@@ -787,8 +764,7 @@ class SwinIR(nn.Module):
                 nn.Conv2d(embed_dim, num_feat, 3, 1, 1),
                 nn.LeakyReLU(inplace=True),
             )
-            # self.upsample = Upsample(upscale, num_feat)
-            self.upsample = DepthGuidedUpsample(upscale, num_feat)
+            self.upsample = Upsample(upscale, num_feat)
             self.conv_last = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
         elif self.upsampler == 'pixelshuffledirect':
             # for lightweight SR (to save parameters)
@@ -850,8 +826,9 @@ class SwinIR(nn.Module):
 
         return x
 
-    def forward(self, x, x_depth):  # decoder tuned
+    # def forward(self, x, x_depth):  # encoder tuned
         H, W = x.shape[2:]
+        H_depth, W_depth = x_depth.shape[2:]
 
         x = self.check_image_size(x)
         x_depth = self.check_image_size(x_depth)
@@ -862,17 +839,88 @@ class SwinIR(nn.Module):
         x = (x - self.mean_x) * self.img_range
         x_depth = (x_depth - self.mean_depth) * self.img_range
 
-        x_combined = torch.cat((x, x_depth), dim=1)
+        # concatenate image with depth map ##############################
+        # x = torch.cat((x, x_depth), dim = 1)
 
         if self.upsampler == 'pixelshuffle':
             # for classical SR
-            x = self.conv_first_combined(x_combined)
-            
+            x = self.conv_first(x)
+            x_depth = self.conv_first_depth(x_depth)
+            x = torch.cat((x, x_depth), dim=1)
+            x = self.conv_combined(x)
+            # x = x * x_depth
             x = self.conv_after_body(self.forward_features(x)) + x
+
+            # ------------------
+            # depth features
+            # ------------------
+            # x = self.depth_features(x, x_depth)
+            # ------------------
+            # ------------------
             
             x = self.conv_before_upsample(x)
+            x = self.conv_last(self.upsample(x))
+            #print('Last', x.shape, x_depth.shape)
+        elif self.upsampler == 'pixelshuffledirect':
+            # for lightweight SR
+            x = self.conv_first(x)
+            x = self.conv_after_body(self.forward_features(x)) + x
+            x = self.upsample(x)
+        elif self.upsampler == 'nearest+conv':
+            # for real-world SR
+            x = self.conv_first(x)
+            x = self.conv_after_body(self.forward_features(x)) + x
+            x = self.conv_before_upsample(x)
+            x = self.lrelu(self.conv_up1(torch.nn.functional.interpolate(x, scale_factor=2, mode='nearest')))
+            x = self.lrelu(self.conv_up2(torch.nn.functional.interpolate(x, scale_factor=2, mode='nearest')))
+            x = self.conv_last(self.lrelu(self.conv_hr(x)))
+        else:
+            # for image denoising and JPEG compression artifact reduction
+            x_first = self.conv_first(x)
+            res = self.conv_after_body(self.forward_features(x_first)) + x_first
+            x = x + self.conv_last(res)
 
-            x = self.conv_last(self.upsample(x, x_depth))
+        x = x / self.img_range + self.mean_x
+        
+        # add into return depth map
+        return x[:, :, :H*self.upscale, :W*self.upscale]
+
+    def forward(self, x, x_depth):  # decoder tuned
+        H, W = x.shape[2:]
+        H_depth, W_depth = x_depth.shape[2:]
+
+        x = self.check_image_size(x)
+        x_depth = self.check_image_size(x_depth)
+
+        self.mean_x = self.mean.type_as(x)
+        self.mean_depth = self.mean_depth.type_as(x_depth)
+
+        x = (x - self.mean_x) * self.img_range
+        x_depth = (x_depth - self.mean_depth) * self.img_range
+
+        # concatenate image with depth map ##############################
+        # x = torch.cat((x, x_depth), dim = 1)
+
+        if self.upsampler == 'pixelshuffle':
+            # for classical SR
+            x = self.conv_first(x)
+            x_depth = self.conv_first_depth(x_depth)
+            
+            # x = x * x_depth
+            x = self.conv_after_body(self.forward_features(x)) + x
+
+            # ------------------
+            # depth features
+            # ------------------
+            # x = self.depth_features(x, x_depth)
+            # ------------------
+            # ------------------
+            
+            x = torch.cat((x, x_depth), dim=1)
+            x = self.conv_combined(x)
+            
+            x = self.conv_before_upsample(x)
+            x = self.conv_last(self.upsample(x))
         elif self.upsampler == 'pixelshuffledirect':
             # for lightweight SR
             x = self.conv_first(x)

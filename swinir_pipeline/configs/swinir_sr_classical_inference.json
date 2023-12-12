@@ -1,5 +1,5 @@
 {
-  "task": "swinir_sr_classical_fine_tuned"               //"swinir_sr_classical_patch48_x2"     //  classical image sr for x2/x3/x4/x8. root/task/images-models-options
+  "task": "swinir_sr_depth_pixelshuffle_concat_input"               //"swinir_sr_classical_patch48_x2"     //  classical image sr for x2/x3/x4/x8. root/task/images-models-options
   , "model": "plain"                                                                      // "plain" | "plain2" if two inputs
   , "gpu_ids": [0]                                                                        //[0,1,2,3,4,5,6,7]
   , "dist": true
@@ -10,8 +10,8 @@
 
   , "path": {
     "root": "/home/aleks/main/huawei/swin_logdir"                                         // "denoising" | "superresolution" | "dejpeg"
-    , "pretrained_netG": "/home/aleks/main/huawei/ISR_With_Depth_Estimation/pretrained_models/swin/790_G_.pth"      // path of pretrained model. We fine-tune X3/X4/X8 models from X2 model, so that `G_optimizer_lr` and `G_scheduler_milestones` can be halved to save time.
-    , "pretrained_netE": "/home/aleks/main/huawei/ISR_With_Depth_Estimation/pretrained_models/swin/790_E_.pth"                                                             // "model_zoo/2200_E.pth" path of pretrained model
+    , "pretrained_netG": "/home/aleks/main/huawei/swin_logdir/swinir_sr_depth_pixelshuffle_concat_input/models/8800_G.pth"      // path of pretrained model. We fine-tune X3/X4/X8 models from X2 model, so that `G_optimizer_lr` and `G_scheduler_milestones` can be halved to save time.
+    , "pretrained_netE": "/home/aleks/main/huawei/swin_logdir/swinir_sr_depth_pixelshuffle_concat_input/models/8800_E.pth"                                                             // "model_zoo/2200_E.pth" path of pretrained model
   }
 
   , "datasets": {

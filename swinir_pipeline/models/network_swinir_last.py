@@ -168,6 +168,106 @@ class WindowAttention(nn.Module):
         flops += N * self.dim * self.dim
         return flops
 
+class DepthAwareWindowAttention(nn.Module):
+    # ... [existing initialization code] ...
+
+    def __init__(self, dim, window_size, num_heads, depth_dim, qkv_bias=True, qk_scale=None, attn_drop=0., proj_drop=0.):
+        super().__init__()
+        # ... [existing initialization code] ...
+        self.dim = dim
+        self.window_size = window_size  # Wh, Ww
+        self.num_heads = num_heads
+        head_dim = dim // num_heads
+        self.scale = qk_scale or head_dim ** -0.5
+
+        # define a parameter table of relative position bias
+        self.relative_position_bias_table = nn.Parameter(
+            torch.zeros((2 * window_size[0] - 1) * (2 * window_size[1] - 1), num_heads))  # 2*Wh-1 * 2*Ww-1, nH
+
+        # get pair-wise relative position index for each token inside the window
+        coords_h = torch.arange(self.window_size[0])
+        coords_w = torch.arange(self.window_size[1])
+        coords = torch.stack(torch.meshgrid([coords_h, coords_w]))  # 2, Wh, Ww
+        coords_flatten = torch.flatten(coords, 1)  # 2, Wh*Ww
+        relative_coords = coords_flatten[:, :, None] - coords_flatten[:, None, :]  # 2, Wh*Ww, Wh*Ww
+        relative_coords = relative_coords.permute(1, 2, 0).contiguous()  # Wh*Ww, Wh*Ww, 2
+        relative_coords[:, :, 0] += self.window_size[0] - 1  # shift to start from 0
+        relative_coords[:, :, 1] += self.window_size[1] - 1
+        relative_coords[:, :, 0] *= 2 * self.window_size[1] - 1
+        relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
+        self.register_buffer("relative_position_index", relative_position_index)
+
+        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj = nn.Linear(dim, dim)
+
+        self.proj_drop = nn.Dropout(proj_drop)
+
+        trunc_normal_(self.relative_position_bias_table, std=.02)
+        self.softmax = nn.Softmax(dim=-1)
+        # Depth processing layers
+        self.depth_proj = nn.Linear(depth_dim, dim)  # Assuming depth_dim is the number of depth map channels
+
+    def forward(self, x, depth_map, mask=None, return_attn=False):
+        B_, N, C = x.shape
+
+        # Process depth map
+        depth_features = self.depth_proj(depth_map).reshape(B_, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
+        # ... [existing code to calculate q, k, v] ...
+        qkv = self.qkv(x).reshape(B_, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
+        q, k, v = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
+
+        q = q * self.scale
+        # Incorporate depth features into attention calculation
+        # For example, adding depth features to the query
+        q = q + depth_features
+
+        # ... [rest of the existing forward method] ...
+        # Calculate attention, apply to value, and project the output as before
+
+        attn = (q @ k.transpose(-2, -1))
+
+        relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
+            self.window_size[0] * self.window_size[1], self.window_size[0] * self.window_size[1], -1)  # Wh*Ww,Wh*Ww,nH
+        relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
+        attn = attn + relative_position_bias.unsqueeze(0)
+
+        if mask is not None:
+            nW = mask.shape[0]
+            attn = attn.view(B_ // nW, nW, self.num_heads, N, N) + mask.unsqueeze(1).unsqueeze(0)
+            attn = attn.view(-1, self.num_heads, N, N)
+            attn = self.softmax(attn)
+        else:
+            attn = self.softmax(attn)
+
+        attn = self.attn_drop(attn)
+
+        x = (attn @ v).transpose(1, 2).reshape(B_, N, C)
+        x = self.proj(x)
+        x = self.proj_drop(x)
+        
+        # Return attention weights if requested
+        if return_attn:
+            return x, attn
+
+        return x
+    
+    def extra_repr(self) -> str:
+        return f'dim={self.dim}, window_size={self.window_size}, num_heads={self.num_heads}'
+
+    def flops(self, N):
+        # calculate flops for 1 window with token length of N
+        flops = 0
+        # qkv = self.qkv(x)
+        flops += N * self.dim * 3 * self.dim
+        # attn = (q @ k.transpose(-2, -1))
+        flops += self.num_heads * N * (self.dim // self.num_heads) * N
+        #  x = (attn @ v)
+        flops += self.num_heads * N * N * (self.dim // self.num_heads)
+        # x = self.proj(x)
+        flops += N * self.dim * self.dim
+        return flops
+
 
 class SwinTransformerBlock(nn.Module):
     r""" Swin Transformer Block.
@@ -205,8 +305,12 @@ class SwinTransformerBlock(nn.Module):
         assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"
 
         self.norm1 = norm_layer(dim)
-        self.attn = WindowAttention(
-            dim, window_size=to_2tuple(self.window_size), num_heads=num_heads,
+        # self.attn = WindowAttention(
+        #     dim, window_size=to_2tuple(self.window_size), num_heads=num_heads,
+        #     qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop)
+        
+        self.attn = DepthAwareWindowAttention(
+            dim, window_size=to_2tuple(self.window_size), num_heads=num_heads, depth_dim=1,
             qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop)
 
         self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
@@ -244,7 +348,7 @@ class SwinTransformerBlock(nn.Module):
 
         return attn_mask
 
-    def forward(self, x, x_size, return_attn=False):
+    def forward(self, x, depth_map, x_size, return_attn=False):
         H, W = x_size
         B, L, C = x.shape
         # assert L == H * W, "input feature has wrong size"
@@ -252,22 +356,32 @@ class SwinTransformerBlock(nn.Module):
         shortcut = x
         x = self.norm1(x)
         x = x.view(B, H, W, C)
+        depth_map = depth_map.view(B, H, W, 1)
 
         # cyclic shift
         if self.shift_size > 0:
             shifted_x = torch.roll(x, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+            shifted_depth_map = torch.roll(depth_map, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
         else:
             shifted_x = x
+            shifted_depth_map = depth_map
 
         # partition windows
         x_windows = window_partition(shifted_x, self.window_size)  # nW*B, window_size, window_size, C
         x_windows = x_windows.view(-1, self.window_size * self.window_size, C)  # nW*B, window_size*window_size, C
 
+        depth_map_windows = window_partition(shifted_depth_map, self.window_size)  # nW*B, window_size, window_size, C
+        depth_map_windows = x_windows.view(-1, self.window_size * self.window_size, 1)  # nW*B, window_size*window_size, 1
+
         # W-MSA/SW-MSA (to be compatible for testing on images whose shapes are the multiple of window size
+        # if self.input_resolution == x_size:
+        #     attn_windows = self.attn(x_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C
+        # else:
+        #     attn_windows = self.attn(x_windows, mask=self.calculate_mask(x_size).to(x.device))
         if self.input_resolution == x_size:
-            attn_windows = self.attn(x_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C
+            attn_windows = self.attn(x_windows, depth_map_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C
         else:
-            attn_windows = self.attn(x_windows, mask=self.calculate_mask(x_size).to(x.device))
+            attn_windows = self.attn(x_windows, depth_map_windows, mask=self.calculate_mask(x_size).to(x.device))
 
         # merge windows
         attn_windows = attn_windows.view(-1, self.window_size, self.window_size, C)
@@ -402,12 +516,12 @@ class BasicLayer(nn.Module):
         else:
             self.downsample = None
 
-    def forward(self, x, x_size):
+    def forward(self, x, depth_map, x_size):
         for blk in self.blocks:
             if self.use_checkpoint:
-                x = checkpoint.checkpoint(blk, x, x_size)
+                x = checkpoint.checkpoint(blk, x, depth_map, x_size)
             else:
-                x = blk(x, x_size)
+                x = blk(x, depth_map, x_size)
         if self.downsample is not None:
             x = self.downsample(x)
         return x
@@ -486,8 +600,8 @@ class RSTB(nn.Module):
             img_size=img_size, patch_size=patch_size, in_chans=0, embed_dim=dim,
             norm_layer=None)
 
-    def forward(self, x, x_size):
-        return self.patch_embed(self.conv(self.patch_unembed(self.residual_group(x, x_size), x_size))) + x
+    def forward(self, x, depth_map, x_size):
+        return self.patch_embed(self.conv(self.patch_unembed(self.residual_group(x, depth_map, x_size), x_size)), depth_map) + x
 
     def flops(self):
         flops = 0
@@ -529,11 +643,12 @@ class PatchEmbed(nn.Module):
         else:
             self.norm = None
 
-    def forward(self, x):
+    def forward(self, x, depth_map):
         x = x.flatten(2).transpose(1, 2)  # B Ph*Pw C
+        depth_map = depth_map.flatten(2).transpose(1, 2)  # B Ph*Pw C
         if self.norm is not None:
             x = self.norm(x)
-        return x
+        return x, depth_map
 
     def flops(self):
         flops = 0
@@ -621,6 +736,7 @@ class DepthGuidedUpsample(nn.Module):
         x_upsampled = self.conv(x_weighted)
         x_upsampled = self.pixel_shuffle(x_upsampled)
         return x_upsampled
+    
 
 class UpsampleOneStep(nn.Sequential):
     """UpsampleOneStep module (the difference with Upsample is that it always only has 1conv + 1pixelshuffle)
@@ -698,9 +814,7 @@ class SwinIR(nn.Module):
 
         #####################################################################################################
         ################################### 1, shallow feature extraction ###################################
-        # self.conv_first = nn.Conv2d(num_in_ch, embed_dim, 3, 1, 1)   # add +1 channel for depth map
-        self.conv_first_combined = nn.Conv2d(num_in_ch + 1, embed_dim, 3, 1, 1)
-
+        self.conv_first = nn.Conv2d(num_in_ch, embed_dim, 3, 1, 1)   # add +1 channel for depth map
 
         #####################################################################################################
         ################################### 2, deep feature extraction ######################################
@@ -789,6 +903,7 @@ class SwinIR(nn.Module):
             )
             # self.upsample = Upsample(upscale, num_feat)
             self.upsample = DepthGuidedUpsample(upscale, num_feat)
+
             self.conv_last = nn.Conv2d(num_feat, num_out_ch, 3, 1, 1)
         elif self.upsampler == 'pixelshuffledirect':
             # for lightweight SR (to save parameters)
@@ -834,45 +949,49 @@ class SwinIR(nn.Module):
         x = F.pad(x, (0, mod_pad_w, 0, mod_pad_h), 'reflect')
         return x
 
-    def forward_features(self, x):
+    def forward_features(self, x, depth_map):
         x_size = (x.shape[2], x.shape[3])
-        x = self.patch_embed(x)
+        x, depth_map = self.patch_embed(x, depth_map)
         if self.ape:
             x = x + self.absolute_pos_embed
         x = self.pos_drop(x)
         #print('Before RSTB', x.shape)
         for layer in self.layers:
-            x = layer(x, x_size)
+            x = layer(x, depth_map, x_size)
         #print('After RSTB', x.shape)
 
         x = self.norm(x)  # B L C
-        x = self.patch_unembed(x, x_size)
+        x, depth_map = self.patch_unembed(x, depth_map, x_size)
 
         return x
 
-    def forward(self, x, x_depth):  # decoder tuned
+    def forward(self, x, depth_map):  # decoder tuned
         H, W = x.shape[2:]
+        H_depth, W_depth = depth_map.shape[2:]
 
         x = self.check_image_size(x)
-        x_depth = self.check_image_size(x_depth)
+        depth_map = self.check_image_size(depth_map)
 
         self.mean_x = self.mean.type_as(x)
-        self.mean_depth = self.mean_depth.type_as(x_depth)
+        self.mean_depth = self.mean_depth.type_as(depth_map)
 
         x = (x - self.mean_x) * self.img_range
-        x_depth = (x_depth - self.mean_depth) * self.img_range
+        depth_map = (depth_map - self.mean_depth) * self.img_range
 
-        x_combined = torch.cat((x, x_depth), dim=1)
+        # concatenate image with depth map ##############################
+        # x = torch.cat((x, x_depth), dim = 1)
 
         if self.upsampler == 'pixelshuffle':
             # for classical SR
-            x = self.conv_first_combined(x_combined)
+            x = self.conv_first(x)
             
-            x = self.conv_after_body(self.forward_features(x)) + x
+            x = self.conv_after_body(self.forward_features(x, depth_map)) + x
             
             x = self.conv_before_upsample(x)
+            # x = self.conv_last(self.upsample(x))
+            x = self.conv_last(self.upsample(x, depth_map)
+)
 
-            x = self.conv_last(self.upsample(x, x_depth))
         elif self.upsampler == 'pixelshuffledirect':
             # for lightweight SR
             x = self.conv_first(x)
