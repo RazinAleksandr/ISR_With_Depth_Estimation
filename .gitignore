@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+/workdir
+/ldm_logdir
+/*logdir*
+/*logs*
+
 # Distribution / packaging
 .Python
 build/
