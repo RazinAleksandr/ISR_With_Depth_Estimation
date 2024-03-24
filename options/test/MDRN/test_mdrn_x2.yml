@@ -1,0 +1,61 @@
+name: MDRN_test_X2_blur_deblur
+model_type: SRModel
+scale: 2
+num_gpu: 1 #auto  # set num_gpu: 0 for cpu mode
+manual_seed: 0
+
+datasets:
+  test_1:
+    name: Set5
+    type: PairedImageDataset
+    dataroot_gt: /home/aleks/main/huawei/ISR_Task_2023/datasets/testsets/Set5/HR_mod2
+    dataroot_lq: /home/aleks/main/huawei/ISR_Task_2023/datasets/testsets/Set5/X2
+    io_backend:
+      type: disk
+  test_2:
+    name: Manga109
+    type: PairedImageDataset
+    dataroot_gt: /home/aleks/main/huawei/ISR_Task_2023/datasets/testsets/Manga109/HR_mod2
+    dataroot_lq: /home/aleks/main/huawei/ISR_Task_2023/datasets/testsets/Manga109/X2
+    io_backend:
+      type: disk
+  test_3:
+    name: DIV2k
+    type: PairedImageDataset
+    dataroot_gt: /home/aleks/main/huawei/ISR_Task_2023/datasets/testsets/DIV2K/HR_mod2
+    dataroot_lq: /home/aleks/main/huawei/ISR_Task_2023/datasets/testsets/DIV2K/X2
+    io_backend:
+      type: disk  
+  test_4:
+    name: Christmas
+    type: PairedImageDataset
+    dataroot_gt: datasets/testsets/Christmas/HR_mod2
+    dataroot_lq: datasets/testsets/Christmas/X2
+    io_backend:
+      type: disk
+
+# network structures
+network_g:
+  type: MDRN
+  upscale: 2
+
+# path
+path:
+  pretrain_network_g: /home/aleks/main/huawei/ISR_Task_2023/experiments/train_MDRN_X2_deblur/models/net_g_10000.pth
+  strict_load_g: true
+  param_key_g: params_ema
+
+# validation settings
+val:
+  save_img: true
+  suffix: ~  # add suffix to saved images, if None, use exp name
+
+  metrics:
+    psnr: # metric name, can be arbitrary
+      type: calculate_psnr
+      crop_border: 2
+      test_y_channel: true
+    ssim:
+      type: calculate_ssim
+      crop_border: 2
+      test_y_channel: true

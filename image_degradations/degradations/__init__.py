@@ -1,0 +1,2 @@
+from .BSRDegradation import BSRDegradation
+from .ImresizeDegradation import ImresizeDownscale
